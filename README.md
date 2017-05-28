@@ -1,2 +1,2 @@
-# fdl
+# FDL
 FPGA Descriptor Language
