@@ -1,0 +1,65 @@
+grammer: FDL
+author: Aaron Woody
+tabWidth: 2
+tokens:
+  - regex:   '#.*'
+    type:    COMMENT
+  - regex:   "[b|x]?'[0-9a-fA-F]+'"
+    type:    BIT_INIT
+  - regex:   '[a-zA-Z][a-zA-Z0-9_]*'
+    type:    ID
+  - regex:   '[0-9]+\.[0-9]+'
+    type:    FLOAT
+  - regex:   '[0-9]+'
+    type:    INTEGER
+  - regex:   '='
+    type:    ASSIGN
+  - regex:   '\('
+    type:    LPAREN
+  - regex:   '\)'
+    type:    RPAREN
+  - regex:   '\['
+    type:    LBRACK
+  - regex:   '\]'
+    type:    RBRACK
+  - regex:   '\{'
+    type:    LCURBRAC
+  - regex:   '\}'
+    type:    RCURBRAC
+  - regex:   ':'
+    type:    COLON
+  - regex:   ','
+    type:    COMMA
+  - regex:   '\.'
+    type:    DOT
+keywords:
+  - regex:   module
+    type:    MODULE
+  - regex:   in
+    type:    INTERFACE
+  - regex:   out
+    type:    INTERFACE
+  - regex:   signals
+    type:    SIGNALBLOCK
+  - regex:   logic
+    type:    LOGICBLOCK
+  - regex:   bit
+    type:    VARTYPE
+  - regex:   bitvec
+    type:    VARTYPE
+  - regex:   int
+    type:    VARTYPE
+  - regex:   uint
+    type:    VARTYPE
+  - regex:   float
+    type:    VARTYPE
+  - regex:   '='
+    type:    ASSIGN
+  - regex:   and
+    type:    OPER
+  - regex:   or
+    type:    OPER
+  - regex:   spro
+    type:    SYNCPROCESS
+  - regex:   apro
+    type:    ASYNCPROCESS
