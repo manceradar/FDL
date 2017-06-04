@@ -1,0 +1,20 @@
+module VariableDelay:
+  generics:
+    uint          delay = 8
+  ports:
+    bit           in      clk
+    bit           in      rst
+    bit           in      din
+    sint(8)       in      sel
+    bit           out     dout
+
+arch behavior:
+  signals:
+    # Shift register
+    bit[delay:1]  reg = b'00000000'
+
+  logic:
+ 
+    spro(clk,rst):
+      reg  = reg[delay:2] & din
+      dout = reg[sel]

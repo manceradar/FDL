@@ -1,31 +1,32 @@
-import yaml, re
+import re
 
 #Token class for keeping track of type, value, and scope
-class Token (object):
-  def __init__(self, type, value, scope):
-    self.type       = type
-    self.value      = value
-    self.scope      = scope
+class Token:
+  def __init__(self, type, value, scope, lineNo):
+    self.type   = type
+    self.value  = value
+    self.scope  = scope
+    self.lineNo = lineNo
 
   def __str__(self):
-    return 'Token(type="{type}", value="{val}", scope="{scope}")'.format(
-      type = self.type,
-      val  = self.value,
-      scope= self.scope
+    return 'Token(type="{type}", value="{val}", scope="{scope}", lineNo="{line}")'.format(
+      type   = self.type,
+      val    = self.value,
+      scope  = self.scope,
+      line   = self.lineNo
     )
     
   def __repr__(self):
     return self.__str__()
     
     
-class Lexer (object):
+class Lexer(object):
   def __init__(self, text, config):
     #Format text
     self.text     = text.replace('\t','  ')
     self.text     = self.text.split('\n')
     
     # Initialize
-    self.config   = config
     self.lineInd  = 0
     self.charInd  = 0
     self.numLines = len(self.text)
@@ -34,12 +35,12 @@ class Lexer (object):
     self.tabWidth = config['tabWidth']
     
     #Get token and keyword list from config
-    self.tokens   = self.config['tokens']
-    self.keywords = self.config['keywords']
+    self.tokens   = config['tokens']
+    self.keywords = config['keywords']
     
     #Debug
-    print(text)
-    print('numLines = {0}'.format(self.numLines))
+    #print(text)
+    #print('numLines = {0}'.format(self.numLines))
     
   def advanceIndex(self, matchStr):
     matchLen = len(matchStr)
@@ -71,7 +72,7 @@ class Lexer (object):
     #if lineStr is empty, report EOL
     if not lineStr:
       ws = self.advanceIndex(lineStr)
-      return Token(ws,None,None)
+      return Token(ws,None,None,None)
     
     #if WS was found, advance and check EOL EOF
     elif (matchObj):
@@ -83,7 +84,7 @@ class Lexer (object):
       
       ws = self.advanceIndex(matchStr)
       if ws is not None:
-        return Token(ws,None,None)
+        return Token(ws,None,None,None)
         
     # No WS but not EOL, EOF. Can only be scope = 0
     if self.charInd == 0:
@@ -106,7 +107,7 @@ class Lexer (object):
   def get_next_token(self):
     #Return EOF if lexer reached end of text
     if self.complete:
-      return Token('EOF',None,None)
+      return Token('EOF',None,None,None)
     
     wsToken = self.matchWhiteSpace()
     if wsToken:
@@ -127,39 +128,14 @@ class Lexer (object):
         if (token['type'] == 'ID'):
           keyword = self.matchKeywords(matchStr)
           if keyword:
-            token = Token(keyword, matchStr, self.scope)
+            token = Token(keyword, matchStr, self.scope, self.lineInd+1)
           else:
-            token = Token(token['type'], matchStr, self.scope)
+            token = Token(token['type'], matchStr, self.scope, self.lineInd+1)
         else:
-          token = Token(token['type'], matchStr, self.scope)
+          token = Token(token['type'], matchStr, self.scope, self.lineInd+1)
         self.charInd += len(matchStr)
         return token
     
     #Token not found, exception
-    raise Exception('Invalid character "{0}"'.format(re.match('(\S*)',lineStr).group(0)))
+    raise Exception('Invalid character "{0}", lineNo="{1}"'.format(re.match('(\S*)',lineStr).group(0), self.lineInd+1))
     
-    
-def main():
-  #Load Lexer Configuration
-  fo = open('grammer-fdl.yaml')
-  lexerConfig = yaml.load(fo.read())
-  fo.close()
-  
-  #Test String
-  fo = open('example.fdl')
-  testStr = fo.read()
-  fo.close()
-  
-  #Initialize Lexer
-  lexer = Lexer(testStr, lexerConfig)
-  
-  # Loop over text until EOF found
-  token = lexer.get_next_token()
-  print('Found! {0}'.format(token))
-  while (token.type != 'EOF'):
-    token = lexer.get_next_token()
-    print('Found! {0}'.format(token))
-    
-    
-if __name__ == '__main__':
-  main()

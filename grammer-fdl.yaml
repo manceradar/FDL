@@ -1,19 +1,21 @@
 grammer: FDL
 author: Aaron Woody
 tabWidth: 2
+
+#Tokens are checked in order of entry, it matters!!!
 tokens:
   - regex:   '#.*'
     type:    COMMENT
   - regex:   "[b|x]?'[0-9a-fA-F]+'"
     type:    BIT_INIT
+  - regex:   '\"[a-zA-Z]+\"'
+    type:    STRING
   - regex:   '[a-zA-Z][a-zA-Z0-9_]*'
     type:    ID
-  - regex:   '[0-9]+\.[0-9]+'
+  - regex:   '-?[0-9]+\.[0-9]+'
     type:    FLOAT
   - regex:   '[0-9]+'
     type:    INTEGER
-  - regex:   '='
-    type:    ASSIGN
   - regex:   '\('
     type:    LPAREN
   - regex:   '\)'
@@ -32,34 +34,69 @@ tokens:
     type:    COMMA
   - regex:   '\.'
     type:    DOT
+  - regex:   '(\+\+|--|\+=|-=|/=|\*=|==|\!=|\>=|\<=)'
+    type:    OPER_ASSIGN
+  - regex:   '(\+|-|/|\*)'
+    type:    OPER
+  - regex:   '&'
+    type:    CAT
+  - regex:   '='
+    type:    ASSIGN
+    
+# Keywords are checked during ID tokens
 keywords:
+  - regex:   import
+    type:    IMPORT
+  - regex:   library
+    type:    LIBRARY
   - regex:   module
     type:    MODULE
+  - regex:   generics
+    type:    GENERICS
+  - regex:   ports
+    type:    PORTS
   - regex:   in
-    type:    INTERFACE
+    type:    INTERFACE_TYPE
   - regex:   out
-    type:    INTERFACE
+    type:    INTERFACE_TYPE
+  - regex:   master
+    type:    INTERFACE_TYPE
+  - regex:   slave
+    type:    INTERFACE_TYPE
+  - regex:   arch
+    type:    ARCHBLOCK
   - regex:   signals
     type:    SIGNALBLOCK
   - regex:   logic
     type:    LOGICBLOCK
-  - regex:   bit
-    type:    VARTYPE
-  - regex:   bitvec
-    type:    VARTYPE
-  - regex:   int
-    type:    VARTYPE
-  - regex:   uint
-    type:    VARTYPE
-  - regex:   float
-    type:    VARTYPE
-  - regex:   '='
-    type:    ASSIGN
+  - regex:   struct
+    type:    TYPEDEF
+  - regex:   interface
+    type:    TYPEDEF
   - regex:   and
     type:    OPER
   - regex:   or
     type:    OPER
+  - regex:   not
+    type:    OPER
+  - regex:   xor
+    type:    OPER
+  - regex:   nor
+    type:    OPER
+  - regex:   nand
+    type:    OPER
+  - regex:   pro
+    type:    PROCESS
   - regex:   spro
-    type:    SYNCPROCESS
+    type:    SYNCPRO
   - regex:   apro
-    type:    ASYNCPROCESS
+    type:    ASYNCPRO
+    
+# Parser format in order
+parser:
+  types:
+    - bit
+    - sint
+    - uint
+    - float
+      
