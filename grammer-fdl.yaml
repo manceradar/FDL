@@ -34,10 +34,14 @@ tokens:
     type:    COMMA
   - regex:   '\.'
     type:    DOT
-  - regex:   '(\+\+|--|\+=|-=|/=|\*=|==|\!=|\>=|\<=)'
+  - regex:   '(\+\+|--|\+=|-=|/=|\*=)'
     type:    OPER_ASSIGN
-  - regex:   '(\+|-|/|\*)'
-    type:    OPER
+  - regex:   '(==|\!=|\>=|\<=)'
+    type:    LOGICAL
+  - regex:   '(\+|-)'
+    type:    ADD_SUB
+  - regex:   '(\*|/)'
+    type:    MUL_DIV
   - regex:   '&'
     type:    CAT
   - regex:   '='
@@ -73,6 +77,8 @@ keywords:
     type:    TYPEDEF
   - regex:   interface
     type:    TYPEDEF
+  - regex:   const
+    type:    CONST
   - regex:   and
     type:    OPER
   - regex:   or

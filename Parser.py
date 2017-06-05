@@ -3,9 +3,12 @@ from Lexer import Token
 
 #Create an abstract class for abstract-syntax tree (AST)
 class BaseAST(object):
-  def __init__(self, scope, grammerDict):
+  def __init__(self, scope, base, grammerDict):
     #Scope this node is in
     self.scope  = scope
+    
+    #Base name
+    self.base   = base
     
     #Add variables based on dict values
     for var, val in grammerDict.iteritems():
@@ -35,7 +38,7 @@ class Parser:
   # Read next token, but skipping comments and EOL
   def skip(self):
     #Get next token, skipping over comments
-    while (self.check('COMMENT') or self.check('EOL')):
+    while (self.check(['COMMENT', 'EOL'])):
       self.token = self.lexer.get_next_token()
     
   # can check str or list of str
@@ -46,51 +49,67 @@ class Parser:
       return (self.token.type in expectedTokenType)
     
   def verify(self, expectedTokenType):
-    if (self.check(expectedTokenType)):
-      self.next()
+    if (type(expectedTokenType) is str):
+      if (self.check(expectedTokenType)):
+        self.next()
+      else:
+        self.error(expectedTokenType)
+    elif (type(expectedTokenType) is list):
+      if (self.token.type in expectedTokenType):
+        self.next()
+      else:
+        self.error(expectedTokenType)
     else:
-      self.error(expectedTokenType)
+      raise Exception('Verify type "{0}" not valid'.format(type(expectedTokenType)))
+      
+  def getScope(self):
+    return self.token.scope
+    
+  def getValue(self):
+    return self.token.value
+  
+  def getType(self):
+    return self.token.type
     
   def loadLibrary(self):
     importNodes = []
     
-    # Loop over all potential import statements
+    # Load line (IMPORT ID (DOT ID)? EOL)*
     while (self.check('IMPORT')):
       # Get scope
-      scope = self.token.scope
+      scope = self.getScope()
       
       # Create library dict
       libDict = dict()
+      base = self.getType()
       self.verify('IMPORT')
-      libDict['name'] = self.token.value
+      libDict['library'] = self.getValue()
       self.verify('ID')
         
       # Check if DOT is used to only load one item
       if (self.check('DOT')):
         self.verify('DOT')
-        libDict['load'] = self.token.value
+        libDict['load'] = self.getValue()
         self.verify('ID')
       else:
         libDict['load'] = 'all'
-      
-      # Check no other syntax this line
-      self.verify('EOL')
       
       # Skip
       self.skip()
       
       # Create node
-      importNodes.append(BaseAST(scope, libDict))
+      importNodes.append(BaseAST(scope, base, libDict))
           
     # No import line, move on
     return importNodes
     
   def loadModule(self):
     # Read module line (MODULE ID COLON)
-    modScope = self.token.scope
+    modScope = self.getScope()
+    base = self.getType()
     self.verify('MODULE')
     modDict = dict()
-    modDict['name'] = self.token.value
+    modDict['name'] = self.getValue()
     self.verify('ID')
     self.verify('COLON')
     self.skip()
@@ -109,7 +128,7 @@ class Parser:
     modDict['archNode'] = self.loadArch()
     
     #Create module node
-    return BaseAST(modScope, modDict)
+    return BaseAST(modScope, base, modDict)
     
   def loadGenerics(self):
     # Load line (GENERICS COLON EOL)
@@ -123,7 +142,7 @@ class Parser:
     genVars = []
     while (self.check('ID')):
       # Create variable declaration
-      genVars.append(self.loadVarDecl(False))
+      genVars.append(self.loadVarDecl('gen'))
       
     # No more generics
     return genVars
@@ -140,23 +159,24 @@ class Parser:
     portVars = []
     while (self.check('ID')):
       # Create port declaration
-      portVars.append(self.loadVarDecl(True))
+      portVars.append(self.loadVarDecl('port'))
       
     return portVars
     
   def loadArch(self):
     # Get arch scope
     # Load line (ARCH ID COLON)
-    archScope = self.token.scope
+    archScope = self.getScope()
+    base = self.getType()
     self.verify('ARCHBLOCK')
-    archDict = {'name': self.token.value}
+    archDict = {'name': self.getValue()}
     self.verify('ID')
     self.verify('COLON')
     self.skip()
     
     #Next load signal definitions
     #Load line (SIGNALS COLON)
-    archDict['signalScope'] = self.token.scope
+    archDict['signalScope'] = self.getScope()
     self.verify('SIGNALBLOCK')
     self.verify('COLON')
     self.skip()
@@ -165,32 +185,41 @@ class Parser:
     sigVars =[]
     while (self.check('ID')):
       # Create signal declaration
-      sigVars.append(self.loadVarDecl(False))
+      sigVars.append(self.loadVarDecl('var'))
       
     archDict['sigDeclNodes'] = sigVars
     
     #Next load logic
     #Load line (LOGIC COLON)
-    archDict['logicScope'] = self.token.scope
+    archDict['logicScope'] = self.getScope()
     self.verify('LOGICBLOCK')
     self.verify('COLON')
     self.skip()
     archDict['statements'] = self.loadStatementList()
     
-    return BaseAST(archScope, archDict)
+    return BaseAST(archScope, base, archDict)
     
-  def loadVarDecl(self, port):
-    #                    TYPE
-    #                     ||
-    # Load line for var  (ID (ARG_LIST)? (SLICE_LIST)* ID (ASSIGN EXPR)?)
-    # Load line for port (ID (ARG_LIST)? (SLICE_LIST)* INTERFACE_TYPE ID)
-    varScope = self.token.scope
+  def loadVarDecl(self, declType):
+    # Load line for gen  (TYPE (ARG_LIST)? (INDEX_LIST)* ID (ASSIGN EXPR)?)
+    # Load line for port (TYPE (ARG_LIST)? (INDEX_LIST)* INTERFACE_TYPE ID)
+    # Load line for var  ((CONST)? TYPE (ARG_LIST)? (INDEX_LIST)* ID (ASSIGN EXPR)?)
+    varScope = self.getScope()
+    varType = dict()
+    
+    if (declType is 'var'):
+      if (self.check('CONST')):
+        varType['const'] = True
+      else:
+        varType['const'] = False
+    elif (declType is 'gen'):
+      varType['const'] = True
+    else:
+      varType['const'] = False
     
     # TODO: Lookup symbol
     
     # Define variable
-    varType = dict()
-    varType['type'] = self.token.value
+    varType['type'] = self.getValue()
     self.verify('ID')
     
     # Determine type def
@@ -201,26 +230,26 @@ class Parser:
       
     # Determine array size
     if (self.check('LBRACK')):
-      varType['array'] = self.loadSliceList()
+      varType['array'] = self.loadIndexList()
     else:
       varType['array'] = [[0, 0]]
       
     # Only ports have interface types
-    if (port):
+    if (declType is 'port'):
       # Interface type
-      varType['port'] = self.token.value
+      varType['port'] = self.getValue()
       self.verify('INTERFACE_TYPE')
     
     # Name
-    varType['name'] = self.token.value
+    varType['name'] = self.getValue()
     self.verify('ID')
     
-    # Only variables can have initial values
-    if (not port):
+    # Only variables and gen can have initial values
+    if (declType is not 'port'):
       #Check for initial value
       if (self.check('ASSIGN')):
         self.verify('ASSIGN')
-        varType['init'] = self.loadArg()
+        varType['init'] = self.loadExpr()
       else:
         varType['init'] = None
     
@@ -230,7 +259,7 @@ class Parser:
     # Skip
     self.skip()
     
-    return BaseAST(varScope,varType)
+    return BaseAST(varScope, 'DECL', varType)
     
   def loadStatementList(self):
     # Load statements (ASSIGNMENT | SYNCPRO | ASYNCPRO | PROCESS)
@@ -238,7 +267,7 @@ class Parser:
     statementNodes = []
     while (self.check(checkList)):
       statementNodes.append(self.loadStatement())
-      
+    
     return statementNodes
     
   def loadStatement(self):
@@ -250,17 +279,18 @@ class Parser:
       
   def loadAssignment(self):
     # Load line (VAR ASSIGN EXPR)
-    asgnScope = self.token.scope
+    asgnScope = self.getScope()
     asgnDict = dict()
     asgnDict['leftVar'] = self.loadVar()
     self.verify('ASSIGN')
     asgnDict['rightExpr'] = self.loadExpr()
     self.skip()
-    return BaseAST(asgnScope,asgnDict)
+    return BaseAST(asgnScope, 'ASSIGNMENT', asgnDict)
       
   def loadSpro(self):
     # Load line (SYNCPRO ARG_LIST COLON)
-    sproScope = self.token.scope
+    sproScope = self.getScope()
+    base = self.getType()
     self.verify('SYNCPRO')
     sproDict = {'args': self.loadArgList()}
     self.verify('COLON')
@@ -273,18 +303,64 @@ class Parser:
       
     sproDict['statements'] = statementNodes
     
-    return BaseAST(sproScope, sproDict)
+    return BaseAST(sproScope, base, sproDict)
+    
+  def loadExpr(self):
+    # Load (TERM (ADD_SUB TERM)*)
+    exprDict = dict()
+    exprDict['left'] = self.loadTerm()
+    
+    while (self.check(['ADD_SUB','CAT'])):
+      exprDict['op'] = self.getValue()
+      self.verify(['ADD_SUB','CAT'])
+      exprDict['right'] = self.loadTerm()
+      
+    return BaseAST(None, 'EXPR', exprDict)
+    
+  def loadTerm(self):
+    # Load (FACTOR (MUL_DIV FACTOR)*)
+    termDict = dict()
+    termDict['left'] = self.loadFactor()
+    
+    while (self.check('MUL_DIV')):
+      termDict['op'] = self.getValue()
+      self.verify('MUL_DIV')
+      termDict['right'] = self.loadFactor()
+      
+    return BaseAST(None, 'TERM', termDict)
+    
+  def loadFactor(self):
+    # CONST = (INTEGER | FLOAT | BIT_INIT | STRING)
+    # Load (((ADD_SUB | CAT) FACTOR) | CONST | (LPAREN EXPR RPAREN) | VAR)
+    constList = ['INTEGER','FLOAT','BIT_INIT','STRING']
+    operList = ['ADD_SUB','CAT']
+    if (self.check(operList)):
+      factDict = dict()
+      base = self.getType()
+      self.verify(operList)
+      factDict['op']   = self.getValue()
+      self.verify('ADD_SUB')
+      factDict['expr'] = self.loadFactor()
+      return BaseAST(None, base, factDict)
+    elif (self.check(constList)):
+      numDict = dict()
+      numDict['type']  = self.getType()
+      numDict['value'] = self.getValue()
+      self.verify(constList)
+      return BaseAST(None, 'NUM', numDict)
+    else:
+      return self.loadVar()
     
   def loadVar(self):
-    #Load (ID (SLICE_LIST)? (DOT ID (SLICE_LIST)?))
-    varScope = self.token.scope
+    #Load (ID (INDEX_LIST)? (DOT ID (INDEX_LIST)?))
+    varScope = self.getScope()
     varDict = dict()
-    varDict['name'] = self.token.value
+    varDict['name'] = self.getValue()
     self.verify('ID')
     
     # check slice
     if (self.check('LBRACK')):
-      varDict['array'] = self.loadSliceList()
+      varDict['array'] = self.loadIndexList()
     else:
       varDict['array'] = [[0, 0]]
       
@@ -295,65 +371,35 @@ class Parser:
     else:
       varDict['field'] = None
       
-    return BaseAST(varScope, varDict)
-    
-  def loadExpr(self):
-    # Load
-    exprDict = dict()
-    exprDict['left'] = self.loadVar()
-    if (self.check('CAT')):
-      exprDict['op'] = 'CAT'
-      self.verify('CAT')
-      exprDict['right'] = self.loadVar()
-    else:
-      exprDict['right'] = None
-    return BaseAST(None,exprDict)
+    return BaseAST(varScope, 'VAR', varDict)
     
   def loadArgList(self):
-    # Load line (LPAREN ARG (COMMA ARG)* RPAREN)
+    # Load line (LPAREN EXPR (COMMA EXPR)* RPAREN)
     self.verify('LPAREN')
-    argNodes = [self.loadArg()]
+    argNodes = [self.loadExpr()]
     while (self.check('COMMA')):
       self.verify('COMMA')
-      argNodes.append(self.loadArg())
+      argNodes.append(self.loadExpr())
       
     self.verify('RPAREN')
     return argNodes
     
-  def loadArg(self):
-    # ARG = (ID | INTEGER | FLOAT | BIT_INIT | STRING)
-    argNode = {'value': self.token.value, 'type': self.token.type}
-    if (self.check('ID')):
-      self.verify('ID')
-    elif (self.check('INTEGER')):
-      self.verify('INTEGER')
-    elif (self.check('FLOAT')):
-      self.verify('FLOAT')
-    elif (self.check('BIT_INIT')):
-      self.verify('BIT_INIT')
-    elif (self.check('STRING')):
-      self.verify('STRING')
-    else:
-      self.error('ARG')
-      
-    return argNode
-    
-  def loadSliceList(self):
-    # Load line (SLICE)*
+  def loadIndexList(self):
+    # Load line (INDEX)*
     sliceList = []
     while (self.check('LBRACK')):
-      sliceList.append(self.loadSlice())
+      sliceList.append(self.loadIndex())
       
     return sliceList
     
-  def loadSlice(self):
-    # Load line (LBRACK ARG COLON ARG RBRACK)
+  def loadIndex(self):
+    # Load line (LBRACK EXPR (COLON EXPR)? RBRACK)
     self.verify('LBRACK')
-    left  = self.loadArg()
+    left  = self.loadExpr()
     # Slice
     if (self.check('COLON')):
       self.verify('COLON')
-      right = self.loadArg()
+      right = self.loadExpr()
       self.verify('RBRACK')
       
     # Index
@@ -367,7 +413,7 @@ class Parser:
     # Create dict
     fileDict = dict()
    
-    # Check for import (IMPORT ID (DOT ID)? EOL)*
+    # Check for import
     importNodes = self.loadLibrary()
     fileDict['importNodes'] = importNodes
     
@@ -380,30 +426,4 @@ class Parser:
     fileDict['moduleNode'] = moduleNode
     
     # Create Root Node
-    rootNode = BaseAST(None,fileDict)
-        
-    # Debug
-    print('\nImport')
-    for node in importNodes:
-      print(node)
-      
-    print('\n')
-    print('Module "{0}""'.format(moduleNode.name))
-    print('Generics')
-    for node in moduleNode.genDeclNodes:
-      print(node)
-    print('Ports')
-    for node in moduleNode.portDeclNodes:
-      print(node)
-    archNode = moduleNode.archNode
-    print('Architecture "{0}"'.format(archNode.name))
-    print('Signal Scope {0}'.format(archNode.signalScope))
-    for node in archNode.sigDeclNodes:
-      print(node)
-    print('Logic Scope {0}'.format(archNode.logicScope))
-    for node in archNode.statements:
-      print(node)
-      for state in node.statements:
-        print(state.leftVar)
-        print(state.rightExpr.left)
-        print(state.rightExpr.right)
+    return BaseAST(None, 'FILE', fileDict)

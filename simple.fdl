@@ -11,10 +11,10 @@ module VariableDelay:
 arch behavior:
   signals:
     # Shift register
-    bit[delay:1]  reg = b'00000000'
+    bit[delay-1:0]  reg = b'00000000'
 
   logic:
  
     spro(clk,rst):
-      reg  = reg[delay:2] & din
+      reg  = reg[delay-1:1] & din
       dout = reg[sel]
