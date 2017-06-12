@@ -6,16 +6,20 @@ tabWidth: 2
 tokens:
   - regex:   '#.*'
     type:    COMMENT
-  - regex:   "[b|x]?'[0-9a-fA-F]+'"
-    type:    BIT_INIT
+  - regex:   "x'[0-9a-fA-F]+'"
+    type:    BIT_INIT_HEX
+  - regex:   "[b]?'[0-1]+'"
+    type:    BIT_INIT_BIN
   - regex:   '\"[a-zA-Z]+\"'
     type:    STRING
   - regex:   '[a-zA-Z][a-zA-Z0-9_]*'
     type:    ID
-  - regex:   '-?[0-9]+\.[0-9]+'
+  - regex:   '[0-9]+\.[0-9]*'
     type:    FLOAT
   - regex:   '[0-9]+'
     type:    INTEGER
+  - regex:   '([Tt]rue|[Ff]alse)'
+    type:    BOOLEAN
   - regex:   '\('
     type:    LPAREN
   - regex:   '\)'
@@ -99,10 +103,41 @@ keywords:
     type:    ASYNCPRO
     
 # Parser format in order
-parser:
+syntax:
   types:
-    - bit
-    - sint
-    - uint
-    - float
-      
+    - name: bit
+      numArgs: [0]
+      minArgs: 0
+      maxArgs: 0
+      argTypes: [[None]]
+      tokens: BIT_INIT
+    - name: sint
+      numArgs: [1]
+      minArgs: 1
+      maxArgs: 1
+      argTypes: [[INTEGER]]
+      tokens: INTEGER
+    - name: uint
+      numArgs: [1]
+      minArgs: 1
+      maxArgs: 1
+      argTypes: [[INTEGER]]
+      tokens: INTEGER
+    - name: float
+      numArgs: [0]
+      minArgs: 0
+      maxArgs: 0
+      argTypes: [[None]]
+      tokens: FLOAT
+    - name: string
+      numArgs: [0]
+      minArgs: 0
+      maxArgs: 0
+      argTypes: [[None]]
+      tokens: STRING
+    - name: bool
+      numArgs: [0]
+      minArgs: 0
+      maxArgs: 0
+      argTypes: [[None]]
+      tokens: BOOLEAN

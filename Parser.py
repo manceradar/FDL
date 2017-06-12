@@ -1,8 +1,9 @@
 from Lexer import Lexer
 from Lexer import Token
+import re
 
 #Create an abstract class for abstract-syntax tree (AST)
-class BaseAST(object):
+class BaseAST:
   def __init__(self, scope, base, grammerDict):
     #Scope this node is in
     self.scope  = scope
@@ -13,7 +14,7 @@ class BaseAST(object):
     #Add variables based on dict values
     for var, val in grammerDict.iteritems():
       setattr(self, var, val)
-      
+            
   def __str__(self):
     return str(self.__dict__)
 
@@ -70,6 +71,25 @@ class Parser:
   
   def getType(self):
     return self.token.type
+    
+  def parse(self):
+    # Create dict
+    fileDict = dict()
+   
+    # Check for import
+    importNodes = self.loadLibrary()
+    fileDict['importNodes'] = importNodes
+    
+    # Check for module
+    if (self.check('MODULE')):
+      moduleNode = self.loadModule()
+    else:
+      moduleNode = None
+      
+    fileDict['moduleNode'] = moduleNode
+    
+    # Create Root Node
+    return BaseAST(None, 'FILE', fileDict)
     
   def loadLibrary(self):
     importNodes = []
@@ -216,7 +236,6 @@ class Parser:
     else:
       varType['const'] = False
     
-    # TODO: Lookup symbol
     
     # Define variable
     varType['type'] = self.getValue()
@@ -224,21 +243,24 @@ class Parser:
     
     # Determine type def
     if (self.check('LPAREN')):
-      varType['typeConfig'] = self.loadArgList()
+      varType['typeConfig'] = self.loadArgList(True)
     else:
-      varType['typeConfig'] = None
+      varType['typeConfig'] = []
       
     # Determine array size
+    varType['decl'] = True
     if (self.check('LBRACK')):
-      varType['array'] = self.loadIndexList()
+      varType['array'] = self.loadIndexList(True)
     else:
-      varType['array'] = [[0, 0]]
+      varType['array'] = [[0,0]]
       
     # Only ports have interface types
     if (declType is 'port'):
       # Interface type
       varType['port'] = self.getValue()
       self.verify('INTERFACE_TYPE')
+    else:
+      varType['port'] = None
     
     # Name
     varType['name'] = self.getValue()
@@ -249,9 +271,11 @@ class Parser:
       #Check for initial value
       if (self.check('ASSIGN')):
         self.verify('ASSIGN')
-        varType['init'] = self.loadExpr()
+        varType['value'] = self.loadExpr(True)
       else:
-        varType['init'] = None
+        varType['value'] = [None]
+    else:
+      varType['value'] = [None]
     
     # Verify no more syntax this line
     self.verify('EOL')
@@ -281,9 +305,9 @@ class Parser:
     # Load line (VAR ASSIGN EXPR)
     asgnScope = self.getScope()
     asgnDict = dict()
-    asgnDict['leftVar'] = self.loadVar()
+    asgnDict['leftVar'] = self.loadVar(False)
     self.verify('ASSIGN')
-    asgnDict['rightExpr'] = self.loadExpr()
+    asgnDict['rightExpr'] = self.loadExpr(False)
     self.skip()
     return BaseAST(asgnScope, 'ASSIGNMENT', asgnDict)
       
@@ -292,7 +316,7 @@ class Parser:
     sproScope = self.getScope()
     base = self.getType()
     self.verify('SYNCPRO')
-    sproDict = {'args': self.loadArgList()}
+    sproDict = {'args': self.loadArgList(True)}
     self.verify('COLON')
     self.next()
     
@@ -305,64 +329,92 @@ class Parser:
     
     return BaseAST(sproScope, base, sproDict)
     
-  def loadExpr(self):
+  # isDecl specifies if this is a declaration call or assignment call
+  # this variable will be passed to syntax checker to verify
+  # array sizes are constant values. assignment array sizes can be 
+  # constant or signal
+  def loadExpr(self,isDecl):
     # Load (TERM (ADD_SUB TERM)*)
     exprDict = dict()
-    exprDict['left'] = self.loadTerm()
+    exprDict['left'] = self.loadTerm(isDecl)
     
     while (self.check(['ADD_SUB','CAT'])):
       exprDict['op'] = self.getValue()
       self.verify(['ADD_SUB','CAT'])
-      exprDict['right'] = self.loadTerm()
+      exprDict['right'] = self.loadTerm(isDecl)
       
     return BaseAST(None, 'EXPR', exprDict)
     
-  def loadTerm(self):
+  def loadTerm(self, isDecl):
     # Load (FACTOR (MUL_DIV FACTOR)*)
     termDict = dict()
-    termDict['left'] = self.loadFactor()
+    termDict['left'] = self.loadFactor(isDecl)
     
     while (self.check('MUL_DIV')):
       termDict['op'] = self.getValue()
       self.verify('MUL_DIV')
-      termDict['right'] = self.loadFactor()
+      termDict['right'] = self.loadFactor(isDecl)
       
     return BaseAST(None, 'TERM', termDict)
     
-  def loadFactor(self):
+  def loadFactor(self, isDecl):
     # CONST = (INTEGER | FLOAT | BIT_INIT | STRING)
     # Load (((ADD_SUB | CAT) FACTOR) | CONST | (LPAREN EXPR RPAREN) | VAR)
-    constList = ['INTEGER','FLOAT','BIT_INIT','STRING']
-    operList = ['ADD_SUB','CAT']
+    constList = ['INTEGER','FLOAT','BIT_INIT_HEX','BIT_INIT_BIN','STRING']
+    operList = ['ADD_SUB']
     if (self.check(operList)):
       factDict = dict()
       base = self.getType()
       self.verify(operList)
-      factDict['op']   = self.getValue()
+      factDict['op']   = [self.getValue()]
       self.verify('ADD_SUB')
-      factDict['expr'] = self.loadFactor()
+      factDict['expr'] = [self.loadFactor(isDecl)]
       return BaseAST(None, base, factDict)
     elif (self.check(constList)):
       numDict = dict()
-      numDict['type']  = self.getType()
-      numDict['value'] = self.getValue()
+      typeStr = self.getType()
+      valStr = self.getValue()
+      numDict['type']  = typeStr
+      if (typeStr == 'INTEGER'):
+        numDict['value'] = [int(valStr)]
+      elif (typeStr == 'FLOAT'):
+        numDict['value'] = [float(valStr)]
+      elif (typeStr == 'BIT_INIT_BIN'):
+        numDict['type'] = 'BIT_INIT'
+        binData = re.match('[b]?\'([0-1]+)\'',valStr).group(1)
+        numDict['value'] = binData
+      elif (typeStr == 'BIT_INIT_HEX'):
+        numDict['type'] = 'BIT_INIT'
+        hexData = re.match('x\'([0-9a-fA-F]+)\'',valStr).group(1)
+        binData = bin(int(hexData, 16))[2:].zfill(4*len(hexData))
+        numDict['value'] = binData
+      elif (typeStr == 'STRING'):
+        numDict['value'] = valStr
+      
+      numDict['const'] = True
+      numDict['array'] = [[0,0]]
+      numDict['decl']  = isDecl
       self.verify(constList)
       return BaseAST(None, 'NUM', numDict)
+    elif (self.check('LPAREN')):
+      return self.loadExpr(isDecl)
     else:
-      return self.loadVar()
+      return self.loadVar(isDecl)
     
-  def loadVar(self):
+  def loadVar(self, isDecl):
     #Load (ID (INDEX_LIST)? (DOT ID (INDEX_LIST)?))
     varScope = self.getScope()
     varDict = dict()
     varDict['name'] = self.getValue()
     self.verify('ID')
     
+    varDict['decl'] = isDecl
+    
     # check slice
     if (self.check('LBRACK')):
-      varDict['array'] = self.loadIndexList()
+      varDict['array'] = self.loadIndexList(isDecl)
     else:
-      varDict['array'] = [[0, 0]]
+      varDict['array'] = [None]
       
     # check for struct or interface variable
     if (self.check('DOT')):
@@ -373,57 +425,40 @@ class Parser:
       
     return BaseAST(varScope, 'VAR', varDict)
     
-  def loadArgList(self):
+  def loadArgList(self, isDecl):
     # Load line (LPAREN EXPR (COMMA EXPR)* RPAREN)
     self.verify('LPAREN')
-    argNodes = [self.loadExpr()]
+    argNodes = [self.loadExpr(isDecl)]
     while (self.check('COMMA')):
       self.verify('COMMA')
-      argNodes.append(self.loadExpr())
+      argNodes.append(self.loadExpr(isDecl))
       
     self.verify('RPAREN')
     return argNodes
     
-  def loadIndexList(self):
+  def loadIndexList(self, isDecl):
     # Load line (INDEX)*
     sliceList = []
     while (self.check('LBRACK')):
-      sliceList.append(self.loadIndex())
+      sliceList.append(self.loadIndex(isDecl))
       
     return sliceList
     
-  def loadIndex(self):
+  def loadIndex(self, isDecl):
     # Load line (LBRACK EXPR (COLON EXPR)? RBRACK)
     self.verify('LBRACK')
-    left  = self.loadExpr()
+    left  = self.loadExpr(isDecl)
     # Slice
     if (self.check('COLON')):
       self.verify('COLON')
-      right = self.loadExpr()
+      right = self.loadExpr(isDecl)
       self.verify('RBRACK')
       
     # Index
     else:
-      right = None
+      right = left
       self.verify('RBRACK')
       
     return [left, right]
     
-  def parse(self):
-    # Create dict
-    fileDict = dict()
-   
-    # Check for import
-    importNodes = self.loadLibrary()
-    fileDict['importNodes'] = importNodes
-    
-    # Check for module
-    if (self.check('MODULE')):
-      moduleNode = self.loadModule()
-    else:
-      moduleNode = None
-      
-    fileDict['moduleNode'] = moduleNode
-    
-    # Create Root Node
-    return BaseAST(None, 'FILE', fileDict)
+
