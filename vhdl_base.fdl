@@ -1,0 +1,27 @@
+library vhdl_base:
+
+  def not(bit arg):
+    return arg
+  
+  def not(bit* arg):
+    return arg
+    
+  struct complex(uint width):
+    sint(width) real
+    sint(width) imag
+    bit         dval
+    
+  # Notice scope in simpleBus
+  uint addr_width = 12
+  
+  # Always assumed to be master
+  interface simpleBus(uint width):
+    bit[width-1:0]       out data
+    bit[addr_width-1:0]  out addr
+    bit                  in  ready
+    bit                  out valid
+    
+  interface spi3:
+    bit out   sclk
+    bit inout sdio
+    bit out   cs_n

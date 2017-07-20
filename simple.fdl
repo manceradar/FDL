@@ -1,15 +1,15 @@
 module VariableDelay:
   generics:
-    uint(8)       delay = 8
+    uint(8) delay = 8
   ports:
-    bit           in      clk
-    bit           in      rst
-    bit           in      din
-    sint(8)       in      sel
-    bit           out     dout
+    bit     in  clk
+    bit     in  rst
+    bit     in  din
+    sint(8) in  sel
+    bit     out dout
 
-arch behavior:
-  signals:
+arch VariableDelay(behavior):
+  declare:
     # Shift register
     bit[delay:1]  reg = x'00'
 

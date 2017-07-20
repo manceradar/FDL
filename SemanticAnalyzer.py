@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from copy import deepcopy
+from NodeVisitor import NodeVisitor
 
 def arraySize(array):
   # At this point, all constant variables have been
@@ -22,225 +23,22 @@ def arraySize(array):
     return (array[0], array[1], (array[0] - array[1] + 1))
   else:
     return (array[1], array[0], (array[1] - array[0] + 1))
-
-class NodeVisitor (object):
-  def visit(self, node):
-    methodname = 'visit_' + node.base.lower()
-    visitor = getattr(self, methodname, self.visit_error)
-    return visitor(node)
     
-  def visit_error(self, node):
-    print('Visit Error: No visitor for type "{0}"'.format(node.base))
-    
-# Creates type class from dict, and verifies attributes
-class TypeSymbol (object):
-  def __init__(self, configDict):
-    # Define type from dict
-    for var, val in configDict.iteritems():
-      setattr(self, var, val)
-      
-    # Required type attributes
-    requiredAttr = ['name','minArgs','maxArgs','numArgs','argTypes','tokens']
-    for check in requiredAttr:
-      if not hasattr(self,check):
-        print('Error: Type missing "{0}" attr'.format(check))
-        
-class VarSymbol (object):
-  def __init__(self,name=None,type=None,const=None,array=None,value=None):
-    self.name  = name
-    self.type  = type
-    self.const = const
-    self.array = array
-    self.value = value
-  
-  def __str__(self):
-    return '{0} {1} {2} {3} {4}'.format(self.name,self.type,self.const,self.array,self.value)
-      
-class ScopedSymbolTable (object):
-  def __init__(self,builtin_types,scopeName,scopeLevel,enclosingScope=None):
-    self._types         = OrderedDict()
-    self._variables     = OrderedDict()
-    self.scopeName      = scopeName
-    self.scopeLevel     = scopeLevel
-    self.enclosingScope = enclosingScope
-    
-    for i in builtin_types:
-      self.insertType(TypeSymbol(i))
-      
-  def insertType(self, typeSymbol):
-    print('Table: Adding type "{0}"'.format(typeSymbol.name))
-    self._types[typeSymbol.name] = typeSymbol
-    
-  def addVariable(self, node, typeConfig, initVal, currentScopeOnly=False):
-    print('Lookup Type: "{0}"'.format(node.type))
-    symbol = self._types.get(node.type)
-    
-    if (symbol is None):
-      if (currentScopeOnly):
-        # If only the scope, fail
-        return False
-      else:
-        # TODO: Recusively look for scope
-        return False
-    
-    # Good so far, check type arguments
-    configType = self.checkTypeConfig(node, typeConfig)
-    
-    if not configType:
-      print('Config invalid')
-      return False
-      
-    initValid = self.checkInitValue(node, initVal)
-    
-    # Check initial value
-    if not initValid:
-      print('Init invalid')
-      return False
-      
-    # Add variable to table
-    self.insertVar(node,initVal)
-    
-    return True
-    
-  def checkTypeConfig(self, node, configTypes):
-    # Get symbols
-    symbol = self._types.get(node.type)
-    
-    # Check number of args
-    typeConfig = node.typeConfig
-    minArgs = symbol.minArgs
-    maxArgs = symbol.maxArgs
-    lenArgs = len(typeConfig)
-    if (lenArgs < minArgs):
-      print('Variable "{0}" type "{1}" needs minimum of {2}'.format(node.name, node.type, minArgs))
-      raise Exception('Type min args')
-      
-    if (lenArgs > maxArgs):
-      print('Variable "{0}" type "{1}" over maximum of {2}'.format(node.name, node.type, maxArgs))
-      raise Exception('Type max args')
-      
-    # Check arguments types match
-    argInd = symbol.numArgs.index(lenArgs)
-    argTypes = symbol.argTypes[argInd]
-    if (len(configTypes) > 0):
-      for ind,arg in enumerate(configTypes):
-        if (argTypes[ind] != arg):
-          print('Oh no')
-          raise Exception('Type config arg wrong')
-          
-    return True
-    
-  def checkInitValue(self, varNode, initValue):
-    # No init value, skip
-    if initValue.value is None:
-      return True
-      
-    # Determine array size
-    size = [arraySize(ind)[2] for ind in varNode.array]
-    for dim in size:
-      if (dim != len(initValue.value)):
-        return False
-        
-    return True
-  
-  def insertVar(self, varNode, varSymbol):
-    if (self._variables.has_key(varNode.name)):
-      raise Exception('Multiple variables with name "{0}"'.format(varNode.name))
-      
-    print('Table: Adding variable "{0}"'.format(varNode.name))
-    self._variables[varNode.name] = varNode
-    self._variables[varNode.name].value = varSymbol.value
-    
-  def lookupVar(self, node):
-    print('Lookup variable "{0}"'.format(node.name))
-    declNode = self._variables.get(node.name)
-    
-    if (declNode is not None):
-      # See if there is indexing
-      varIndex = self.checkIndicies(declNode,node)
-      if (varIndex is None):
-        return None
-      else:
-        rtrnNode = deepcopy(declNode)
-        rtrnNode.array = varIndex
-
-        return rtrnNode
-    else:
-      # Not found
-      return None
-      
-  def checkIndicies(self,declNode,node):
-    # No index in refNode, use declNode array
-    if (node.array == [None]):
-      return deepcopy(declNode.array)
-    
-    # See if declaration is array
-    lenRef = len(node.array)-1
-    for ind,dim in enumerate(declNode.array):
-      if (ind <= lenRef):
-        # Dimension exists, check values of array
-        decDim = arraySize(dim)
-        refDim = arraySize(node.array[ind])
-        if ((refDim[0] > decDim[0]) or (refDim[1] < decDim[1])):
-          return None
-        
-      else:
-        return None
-        
-    return deepcopy(node.array)
-    
-  def status(self):
-    # Plot header
-    header = '|{0}|'.format('Scope Symbol Table'.center(50,' '))
-    width = len(header)
-    typeWidth = (width-2)/2
-    lines = ['=' * width, header, '=' * width]
-    
-    # Plot types
-    lines.append('|{0}|'.format('Types'.center(width-2,' ')))
-    lines.append('-'*width)
-    lines.append('|{0}{1}|'.format('Name'.ljust(typeWidth,' '),'Tokens'.ljust(typeWidth,' ')))
-    lines.append('-'*width)
-    for var,val in self._types.iteritems():
-      typeStr = '{0}{1}'.format(val.name.ljust(typeWidth,' '),val.tokens.ljust(typeWidth,' '))
-      lines.append('|{0}|'.format(typeStr))
-    
-    # Plot variables
-    lines.append('-'*width)
-    lines.append('|{0}|'.format('Variables'.center(width-2,' ')))
-    lines.append('-'*width)
-    varWidth = (width-2)/5
-    nameStr = 'Name'.ljust(varWidth,' ')
-    constStr = 'Const'.ljust(varWidth,' ')
-    typeStr = 'Type'.ljust(varWidth,' ')
-    valStr = 'Init.'.ljust(varWidth,' ')
-    arrayStr = 'Array'.ljust(varWidth,' ')
-    lines.append('|{0}{1}{2}{3}{4}|'.format(nameStr,constStr,typeStr,valStr,arrayStr))
-    lines.append('-'*width)
-    for var,val in self._variables.iteritems():
-      nameStr = val.name.ljust(varWidth,' ')
-      constStr = str(val.const).ljust(varWidth,' ')
-      typeStr = val.type.ljust(varWidth,' ')
-      valStr = str(val.value).ljust(varWidth,' ')
-      arrayStr = str(val.array).ljust(varWidth,' ')
-      typeStr = '{0}{1}{2}{3}{4}'.format(nameStr,constStr,typeStr,valStr,arrayStr)
-      lines.append('|{0}|'.format(typeStr))
-      
-    lines.append('-'*width)
-    print('\n'.join(lines))
     
 # Perform deeper analysis of AST
 # Check if variables exist
 # Check if types are defined
 # Check indexing and slicing has constant variables
 # Check array sizes match
-# Check scopes match
 class SemanticAnalyzer (NodeVisitor):
-  def __init__(self,builtin_types):
-    self.scope = ScopedSymbolTable(builtin_types,'global',1,None)
+  def __init__(self,filename,config):
+    self.fid = open(filename, 'w')
+    self.vhdl = config['vhdl']
+    self.scope = ScopedSymbolTable(config['types'],'global',1,None)
+    self.fid.write(self.vhdl['fdlHeader'])
+    self.fid.write(self.vhdl['vhdlHeader'])
     
   def visit_file(self,node):
-    
     # TODO: import
     for ind in node.importNodes:
       self.visit(ind)
@@ -248,14 +46,19 @@ class SemanticAnalyzer (NodeVisitor):
     # Module
     self.visit(node.moduleNode)
     
+    # Close file
+    self.fid.close()
+    
   def visit_module(self,node):
     # Check generic declarations
     for gen in node.genDeclNodes:
       self.visit(gen)
       
+    # Check port declarations
     for port in node.portDeclNodes:
       self.visit(port)
       
+    # Visit architecture
     self.visit(node.archNode)
     
   def visit_archblock(self, node):
@@ -268,7 +71,6 @@ class SemanticAnalyzer (NodeVisitor):
     # Loop through statements
     for sm in node.statements:
       self.visit(sm)
-    
       
   def visit_decl(self,node):
     # Check declarations
@@ -281,8 +83,7 @@ class SemanticAnalyzer (NodeVisitor):
       if (argSym.const):
         typeConfigTypes.append(argSym.type)
       else:
-        print(':,(')
-        raise Exception('TypeConfig bad')
+        raise Exception('{0} must be constant'.format(argSym.name))
        
     # Replace array indicies with values 
     self.checkArray(node)
@@ -299,6 +100,8 @@ class SemanticAnalyzer (NodeVisitor):
       initVal = VarSymbol()
     
     # Verify Type and TypeConfig valid
+    print(node.array)
+    print(initVal)
     varAdded  = self.scope.addVariable(node,typeConfigTypes,initVal)
     
     if not varAdded:
@@ -335,24 +138,40 @@ class SemanticAnalyzer (NodeVisitor):
   def visit_expr(self,node):
     # First visit node to verify it
     # Validate 'left'
-    leftValid = self.visit(node.left)
+    left = self.visit(node.left)
+    op = node.op
+    right = self.visit(node.right)
     
-    # See if 'op' and 'right' exist
-    if hasattr(node,'op'):
-      #Something
-      pass
+    if (left.const):
+      lStr = str(left.value[0])
+    else:
+      lStr = left.name
       
-    return leftValid
+    if (right.const):
+      rStr = str(right.value[0])
+    else:
+      rStr = right.name
+      
+    if (op == '&'):
+      array = [arraySize(left.array[0])[2]+right.array[0][0], right.array[0][1]]
+    else:
+      array = left.array
+      
+    resultStr = lStr + op + rStr
+    if (left.const and right.const):
+      resultStr = eval(resultStr)
+    
+    result = deepcopy(left)
+    result.value = [resultStr]
+    result.array = array
+    return result
     
   def visit_term(self,node):
     # First visit node to verify it
     # Validate 'left'
     leftValid = self.visit(node.left)
-    
-    # See if 'op' and 'right' exist
-    if hasattr(node,'op'):
-      #Something
-      pass
+    op = node.op
+    rightValid = self.visit(node.right)
     
     return leftValid
       

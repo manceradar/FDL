@@ -1,6 +1,5 @@
 grammer: FDL
 author: Aaron Woody
-tabWidth: 2
 
 #Tokens are checked in order of entry, it matters!!!
 tokens:
@@ -8,7 +7,7 @@ tokens:
     type:    COMMENT
   - regex:   "x'[0-9a-fA-F]+'"
     type:    BIT_INIT_HEX
-  - regex:   "[b]?'[0-1]+'"
+  - regex:   "b?'[01ZXLH-]+'"
     type:    BIT_INIT_BIN
   - regex:   '\"[a-zA-Z]+\"'
     type:    STRING
@@ -18,7 +17,7 @@ tokens:
     type:    FLOAT
   - regex:   '[0-9]+'
     type:    INTEGER
-  - regex:   '([Tt]rue|[Ff]alse)'
+  - regex:   '(True|False)'
     type:    BOOLEAN
   - regex:   '\('
     type:    LPAREN
@@ -38,14 +37,22 @@ tokens:
     type:    COMMA
   - regex:   '\.'
     type:    DOT
-  - regex:   '(\+\+|--|\+=|-=|/=|\*=)'
-    type:    OPER_ASSIGN
-  - regex:   '(==|\!=|\>=|\<=)'
-    type:    LOGICAL
+  - regex:   '\^'
+    type:    EXP_OPER
+  - regex:   '(\+\+|--)'
+    type:    POST_OPER
+  - regex:   '(\+=|-=|/=|\*=)'
+    type:    CMPD_ARITH_ASSIGN
+  - regex:   '(&=|\|=)'
+    type:    CMPD_LOGICAL_ASSIGN
+  - regex:   '(==|\!=|\>=|\<=|\>|\<)'
+    type:    RELATION_OPER
   - regex:   '(\+|-)'
-    type:    ADD_SUB
-  - regex:   '(\*|/)'
-    type:    MUL_DIV
+    type:    ADD_SUB_OPER
+  - regex:   '\*'
+    type:    STAR
+  - regex:   '/'
+    type:    DIV
   - regex:   '&'
     type:    CAT
   - regex:   '='
@@ -57,87 +64,185 @@ keywords:
     type:    IMPORT
   - regex:   library
     type:    LIBRARY
+  - regex:   def
+    type:    DEF
+  - regex:   enum
+    type:    ENUM
   - regex:   module
     type:    MODULE
   - regex:   generics
     type:    GENERICS
   - regex:   ports
     type:    PORTS
-  - regex:   in
-    type:    INTERFACE_TYPE
-  - regex:   out
-    type:    INTERFACE_TYPE
-  - regex:   master
-    type:    INTERFACE_TYPE
-  - regex:   slave
-    type:    INTERFACE_TYPE
+  - regex:   'in|out|inout'
+    type:    BASE_INTERFACE
+  - regex:   'master|slave'
+    type:    EXT_INTERFACE
   - regex:   arch
-    type:    ARCHBLOCK
-  - regex:   signals
-    type:    SIGNALBLOCK
+    type:    ARCH
+  - regex:   declare
+    type:    DECLARE
   - regex:   logic
-    type:    LOGICBLOCK
+    type:    LOGIC
+  - regex:   for
+    type:    FOR
+  - regex:   range
+    type:    RANGE
+  - regex:   dim
+    type:    DIM
+  - regex:   left
+    type:    LEFT
+  - regex:   right
+    type:    RIGHT
+  - regex:   length
+    type:    LENGTH
+  - regex:   case
+    type:    CASE
   - regex:   struct
-    type:    TYPEDEF
+    type:    STRUCT
   - regex:   interface
-    type:    TYPEDEF
+    type:    INTERFACE
   - regex:   const
     type:    CONST
-  - regex:   and
-    type:    OPER
-  - regex:   or
-    type:    OPER
+  - regex:   'and|nand|or|nor|xor|xnor'
+    type:    LOGICAL_OPER
+  - regex:   'sll|srl|sla|sra|rol|ror'
+    type:    SHIFT_OPER
+  - regex:   'mod|rem'
+    type:    MOD_REM_OPER
   - regex:   not
-    type:    OPER
-  - regex:   xor
-    type:    OPER
-  - regex:   nor
-    type:    OPER
-  - regex:   nand
-    type:    OPER
+    type:    NOT_OPER
+  - regex:   others
+    type:    OTHERS
   - regex:   pro
-    type:    PROCESS
+    type:    PRO
   - regex:   spro
-    type:    SYNCPRO
+    type:    SPRO
   - regex:   apro
-    type:    ASYNCPRO
+    type:    APRO
+  - regex:   if
+    type:    IF
+  - regex:   elif
+    type:    ELIF
+  - regex:   else
+    type:    ELSE
+  - regex:   return
+    type:    RETURN
+    
     
 # Parser format in order
-syntax:
-  types:
-    - name: bit
-      numArgs: [0]
-      minArgs: 0
-      maxArgs: 0
-      argTypes: [[None]]
-      tokens: BIT_INIT
-    - name: sint
-      numArgs: [1]
-      minArgs: 1
-      maxArgs: 1
-      argTypes: [[INTEGER]]
-      tokens: INTEGER
-    - name: uint
-      numArgs: [1]
-      minArgs: 1
-      maxArgs: 1
-      argTypes: [[INTEGER]]
-      tokens: INTEGER
-    - name: float
-      numArgs: [0]
-      minArgs: 0
-      maxArgs: 0
-      argTypes: [[None]]
-      tokens: FLOAT
-    - name: string
-      numArgs: [0]
-      minArgs: 0
-      maxArgs: 0
-      argTypes: [[None]]
-      tokens: STRING
-    - name: bool
-      numArgs: [0]
-      minArgs: 0
-      maxArgs: 0
-      argTypes: [[None]]
-      tokens: BOOLEAN
+types:
+  - name: bit
+    numArgs: [0]
+    minArgs: 0
+    maxArgs: 0
+    argTypes: [[None]]
+    tokens: BIT_INIT
+    vhdl: ['std_logic','std_logic_vector','std_logic_{0}d']
+    vhdlDef: [False, False, True]
+  - name: sint
+    numArgs: [1]
+    minArgs: 1
+    maxArgs: 1
+    argTypes: [[INTEGER]]
+    tokens: INTEGER
+    vhdl: ['signed','signed_{0}d']
+    vhdlDef: [False,True]
+  - name: uint
+    numArgs: [1]
+    minArgs: 1
+    maxArgs: 1
+    argTypes: [[INTEGER]]
+    tokens: INTEGER
+    vhdl: ['unsigned','unsigned_{0}d']
+    vhdlDef: [False,True]
+  - name: float
+    numArgs: [0]
+    minArgs: 0
+    maxArgs: 0
+    argTypes: [[None]]
+    tokens: FLOAT
+    vhdl: ['real','real_{0}d']
+    vhdlDef: [False,True]
+  - name: str
+    numArgs: [0]
+    minArgs: 0
+    maxArgs: 0
+    argTypes: [[None]]
+    tokens: STRING
+    vhdl: ['string','string_{0}d']
+    vhdlDef: [False,True]
+  - name: bool
+    numArgs: [0]
+    minArgs: 0
+    maxArgs: 0
+    argTypes: [[None]]
+    tokens: BOOLEAN
+    vhdl: ['boolean','boolean_{0}d']
+    vhdlDef: [False,True]
+      
+vhdl:
+  fdlHeader: |
+              ------------------------------------------------------
+              -- File was created with FDL
+              ------------------------------------------------------
+  vhdlHeader: |
+              library IEEE;
+              use IEEE.STD_LOGIC_1164.ALL;
+              use IEEE.NUMERIC_STD.ALL;
+              use IEEE.MATH_REAL.ALL;
+  module: |
+          entity {0} is
+          {1}
+          end {0};
+  genericDecl: |
+            generic(
+            {0}
+            );
+  genDecl: |
+           '{0} : {1}{2}'
+  portDecl: |
+            '{0} : {1} {2}{3}'
+  sigDecl: |
+           'signal {0} : {1}{2}'
+  constDecl: |
+             'constant {0} : {1}{2}'
+  declInit: |
+            ' := {0}'
+  portDecl: |
+         port(
+         {0}
+         );
+  arch: |
+        architecture {0} of {1} is
+        {2}
+        begin
+        {3}
+        end {0};
+  spro_1: |
+          process({0})
+          begin
+            if {1}({0}) then
+            {2}
+            end if;
+          end process;
+  spro_2: |
+          process({0})
+          begin
+            if {2}({0}) then
+              if ({1} = {3}) then
+              {4}
+              else
+              {5}
+              end if;
+            end if;
+          end process;
+  apro: |
+        process({0},{1})
+        begin
+          if ({1} = {3}) then
+            {4}
+          elsif {2}({0}) then
+            {5}
+          end if;
+        end process;

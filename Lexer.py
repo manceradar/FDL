@@ -1,7 +1,7 @@
 import re
 
 #Token class for keeping track of type, value, and scope
-class Token:
+class Token(object):
   def __init__(self, type, value, scope, lineNo):
     self.type   = type
     self.value  = value
@@ -32,15 +32,24 @@ class Lexer(object):
     self.numLines = len(self.text)
     self.complete = False
     self.scope    = 0
-    self.tabWidth = config['tabWidth']
     
     #Get token and keyword list from config
     self.tokens   = config['tokens']
     self.keywords = config['keywords']
     
-    #Debug
-    #print(text)
-    #print('numLines = {0}'.format(self.numLines))
+    #Parse entire file into tokens
+    self.textTokens = []
+    while (not self.complete):
+      self.textTokens.append(self.get_next_token())
+      #print(self.textTokens[-1])
+      
+  def get(self):
+    #Return token and remove from list
+    return self.textTokens.pop(0)
+    
+  def peek(self,ind=1):
+    #Return token at ind, but dont remove
+    return self.textTokens[ind]
     
   def advanceIndex(self, matchStr):
     matchLen = len(matchStr)
@@ -79,16 +88,17 @@ class Lexer(object):
       matchStr = matchObj.group(0)
       #Check scope if charInd == 0
       if self.charInd == 0:
-        #TODO: Need better scoping in future
-        self.scope = len(matchStr)/self.tabWidth
+        #Determine scope from spaces
+        self.scope = len(matchStr)
       
+      #Return token if 'EOL' or 'EOF'
       ws = self.advanceIndex(matchStr)
       if ws is not None:
         return Token(ws,None,None,None)
         
     # No WS but not EOL, EOF. Can only be scope = 0
     if self.charInd == 0:
-      #TODO: Need better scoping in future
+      #Scope is 0
       self.scope = 0
     
     #Removed whitespace, but not EOL or EOF token
@@ -98,7 +108,9 @@ class Lexer(object):
   def matchKeywords(self, matchStr):
     #Check IDs if they are keywords
     for keyword in self.keywords:
-      if matchStr == keyword['regex']:
+      regexPattern = '\\b('+ keyword['regex'] + ')\\b'
+      matchObj = re.match(regexPattern, matchStr)
+      if matchObj:
         return keyword['type']
     
     # No match found, must be ID
