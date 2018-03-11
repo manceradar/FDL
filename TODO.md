@@ -17,13 +17,12 @@
 - [x] Distinguish between module, variable declaration, and assignment
 - [x] Log AST for debug
 
-### Library 
+## Library 
 - [ ] Translate all base VHDL functions
 - [ ] Create FDL extension library
 - [ ] Create simulation extension library
-- 
 
-### Testbench framework
+## Testbench framework
 - [ ] Add testbench with generic, declare, and logic blocks
 - [x] Add time type
 - [ ] Add 'delay' for time delay
@@ -34,14 +33,14 @@
 
 
 ## Semantic checker
-- Make VHDL base library
-- Semantic checker with variables, types, structs, and interfaces
-- Higher level semantic checking for multiple driver, unused signals, etc.
+- [ ] Make VHDL base library
+- [ ] Semantic checker with variables, types, structs, and interfaces
+- [ ] Higher level semantic checking for multiple driver, unused signals, etc.
 
 ## AST Translater
 
 
 ## VHDL Writer
-- 93 or 08 syntax
+- [ ] 93 or 08 syntax
 
 
