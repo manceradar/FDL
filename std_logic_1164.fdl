@@ -1,0 +1,168 @@
+library std_logic_1164:
+
+  # Integer 
+
+  # Used for lookup table index
+  function blu(bit val):
+    uint index
+    case(val):
+      'X':
+        index = 0
+      '0':
+        index = 1
+      '1':
+        index = 2
+      'Z':
+        index = 3
+      'L':
+        index = 4
+      'H':
+        index = 5
+      '-':
+        index = 6
+     
+    return index
+  
+  const bit[0:6][0:6] andTable = {
+  # ------------------------------------------------
+  # |  X    0    1    Z    L    H    -         |   |  
+  # ------------------------------------------------
+    { 'X', '0', 'X', 'X', '0', 'X', 'X' },  #  | X |
+    { '0', '0', '0', '0', '0', '0', '0' },  #  | 0 |
+    { 'X', '0', '1', 'X', '0', '1', 'X' },  #  | 1 |
+    { 'X', '0', 'X', 'X', '0', 'X', 'X' },  #  | Z |
+    { '0', '0', '0', '0', '0', '0', '0' },  #  | L |
+    { 'X', '0', '1', 'X', '0', '1', 'X' },  #  | H |
+    { 'X', '0', 'X', 'X', '0', 'X', 'X' }   #  | - |
+  }
+  
+  const bit[0:6][0:6] orTable = {
+  # ------------------------------------------------
+  # |  X    0    1    Z    L    H    -         |   |  
+  # ------------------------------------------------
+    { 'X', 'X', '1', 'X', 'X', '1', 'X' },  #  | X |
+    { 'X', '0', '1', 'X', '0', '1', 'X' },  #  | 0 |
+    { '1', '1', '1', '1', '1', '1', '1' },  #  | 1 |
+    { 'X', 'X', '1', 'X', 'X', '1', 'X' },  #  | Z |
+    { 'X', '0', '1', 'X', '0', '1', 'X' },  #  | L |
+    { '1', '1', '1', '1', '1', '1', '1' },  #  | H |
+    { 'X', 'X', '1', 'X', 'X', '1', 'X' }   #  | - |
+  }
+  
+  const bit[0:6][0:6] xorTable = {
+  # ------------------------------------------------
+  # |  X    0    1    Z    L    H    -         |   |  
+  # ------------------------------------------------
+    { 'X', 'X', 'X', 'X', 'X', 'X', 'X' },  #  | X |
+    { 'X', '0', '1', 'X', '0', '1', 'X' },  #  | 0 |
+    { 'X', '1', '0', 'X', '1', '0', 'X' },  #  | 1 |
+    { 'X', 'X', 'X', 'X', 'X', 'X', 'X' },  #  | Z |
+    { 'X', '0', '1', 'X', '0', '1', 'X' },  #  | L |
+    { 'X', '1', '0', 'X', '1', '0', 'X' },  #  | H |
+    { 'X', 'X', 'X', 'X', 'X', 'X', 'X' }   #  | - |
+  }
+  
+  const bit[0:6] notTable = {
+  # ---------------------------------------
+  # |   X    0    1    Z    L    H    -   |
+  # ---------------------------------------
+       'X', '1', '0', 'X', '1', '0', 'X' }
+        
+  # -----------------
+  # Base functions
+  # -----------------
+  function not(bit left):
+    return notTable[blu(left)]
+  
+  function and(bit left, bit right):
+    return andTable[blu(left)][blu(right)]
+    
+  function nand(bit left, bit right):
+    return not(andTable[blu(left)][blu(right)])
+    
+  function or(bit left, bit right):
+    return orTable[blu(left)][blu(right)]
+    
+  function nor(bit left, bit right):
+    return not(orTable[blu(left)][blu(right)])
+    
+  function xor(bit left, bit right):
+    return xorTable[blu(left)][blu(right)]
+    
+  function xnor(bit left, bit right):
+    return not(xorTable[blu(left)][blu(right)])
+    
+  
+  function not(bit* input):
+    bit[1:input.len()] output
+  
+    for ind = input.range():
+      output[ind] = not(input[ind])
+    
+    return output
+    
+  function and(bit* left, bit* right):
+    bit[0:left.len()-1] output
+    
+    assert (left.len() == right.len()):
+      print("AND: Arguments are not of the same length")
+  
+    for ind = output.range():
+      output[ind] = and(left[ind], right[ind])
+    
+    return output
+    
+  function nand(bit* left, bit* right):
+    bit[0:left.len()-1] output
+    
+    assert (left.len() == right.len()):
+      print("NAND: Arguments are not of the same length")
+  
+    for ind = output.range():
+      output[ind] = nand(left[ind], right[ind])
+    
+    return output
+  
+  function or(bit* left, bit* right):
+    bit[0:left.len()-1] output
+    
+    assert (left.len() == right.len()):
+      print("OR: Arguments are not of the same length")
+  
+    for ind = output.range():
+      output[ind] = or(left[ind], right[ind])
+    
+    return output
+    
+  function nor(bit* left, bit* right):
+    bit[0:left.len()-1] output
+    
+    assert (left.len() == right.len()):
+      print("NOR: Arguments are not of the same length")
+  
+    for ind = output.range():
+      output[ind] = nor(left[ind], right[ind])
+    
+    return output
+    
+  function xor(bit* left, bit* right):
+    bit[0:left.len()-1] output
+    
+    assert (left.len() == right.len()):
+      print("XOR: Arguments are not of the same length")
+  
+    for ind = output.range():
+      output[ind] = xor(left[ind], right[ind])
+    
+    return output
+    
+  function xnor(bit* left, bit* right):
+    bit[0:left.len()-1] output
+    
+    assert (left.len() == right.len()):
+      print("XNOR: Arguments are not of the same length")
+  
+    for ind = output.range():
+      output[ind] = xnor(left[ind], right[ind])
+    
+    return output

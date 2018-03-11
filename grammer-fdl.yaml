@@ -9,7 +9,7 @@ tokens:
     type:    BIT_INIT_HEX
   - regex:   "b?'[01ZXLH-]+'"
     type:    BIT_INIT_BIN
-  - regex:   '\"[a-zA-Z]+\"'
+  - regex:   '\"([^"]|\\\")*\"'
     type:    STRING
   - regex:   '[a-zA-Z][a-zA-Z0-9_]*'
     type:    ID
@@ -64,12 +64,14 @@ keywords:
     type:    IMPORT
   - regex:   library
     type:    LIBRARY
-  - regex:   def
-    type:    DEF
+  - regex:   function
+    type:    FUNCTION
   - regex:   enum
     type:    ENUM
   - regex:   module
     type:    MODULE
+  - regex:   blackbox
+    type:    BLACKBOX
   - regex:   generics
     type:    GENERICS
   - regex:   ports
@@ -84,18 +86,10 @@ keywords:
     type:    DECLARE
   - regex:   logic
     type:    LOGIC
+  - regex:   rename
+    type:    RENAME
   - regex:   for
     type:    FOR
-  - regex:   range
-    type:    RANGE
-  - regex:   dim
-    type:    DIM
-  - regex:   left
-    type:    LEFT
-  - regex:   right
-    type:    RIGHT
-  - regex:   length
-    type:    LENGTH
   - regex:   case
     type:    CASE
   - regex:   struct
@@ -128,6 +122,14 @@ keywords:
     type:    ELSE
   - regex:   return
     type:    RETURN
+  - regex:   assert
+    type:    ASSERT
+  - regex:   print
+    type:    PRINT
+  - regex:   warning
+    type:    WARNING
+  - regex:   error
+    type:    ERROR
     
     
 # Parser format in order
@@ -138,48 +140,36 @@ types:
     maxArgs: 0
     argTypes: [[None]]
     tokens: BIT_INIT
-    vhdl: ['std_logic','std_logic_vector','std_logic_{0}d']
-    vhdlDef: [False, False, True]
   - name: sint
     numArgs: [1]
     minArgs: 1
     maxArgs: 1
     argTypes: [[INTEGER]]
     tokens: INTEGER
-    vhdl: ['signed','signed_{0}d']
-    vhdlDef: [False,True]
   - name: uint
     numArgs: [1]
     minArgs: 1
     maxArgs: 1
     argTypes: [[INTEGER]]
     tokens: INTEGER
-    vhdl: ['unsigned','unsigned_{0}d']
-    vhdlDef: [False,True]
   - name: float
     numArgs: [0]
     minArgs: 0
     maxArgs: 0
     argTypes: [[None]]
     tokens: FLOAT
-    vhdl: ['real','real_{0}d']
-    vhdlDef: [False,True]
   - name: str
     numArgs: [0]
     minArgs: 0
     maxArgs: 0
     argTypes: [[None]]
     tokens: STRING
-    vhdl: ['string','string_{0}d']
-    vhdlDef: [False,True]
   - name: bool
     numArgs: [0]
     minArgs: 0
     maxArgs: 0
     argTypes: [[None]]
     tokens: BOOLEAN
-    vhdl: ['boolean','boolean_{0}d']
-    vhdlDef: [False,True]
       
 vhdl:
   fdlHeader: |

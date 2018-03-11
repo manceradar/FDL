@@ -1,28 +1,6 @@
 from collections import OrderedDict
 from copy import deepcopy
 from NodeVisitor import NodeVisitor
-
-def arraySize(array):
-  # At this point, all constant variables have been
-  # replaced by their integer, but not signals. This 
-  # code is to verify signal INDEXING, not signal slicing.
-  # If any index is a signal, the other index must be the
-  # same signal.
-  indStr = [isinstance(m,str) for m in array]
-  bothSame = (array[0] == array[1])
-  if (all(indStr) and bothSame):
-    return (None, None, 1)
-  elif (all(indStr) and not(bothSame)):
-    raise Exception('Variable index slicing')
-  elif (any(indStr)):
-    raise Exception('Variable index slicing')
-  
-  
-  # Assuming indices are numbers
-  if (array[0] > array[1]):
-    return (array[0], array[1], (array[0] - array[1] + 1))
-  else:
-    return (array[1], array[0], (array[1] - array[0] + 1))
     
     
 # Perform deeper analysis of AST

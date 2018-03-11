@@ -1,9 +1,17 @@
 from Lexer import Lexer
-from Parser import Parser
+from SyntaxParser import SyntaxParser
 from SemanticAnalyzer import SemanticAnalyzer
-from Convert import Convert
 import yaml
 import os
+
+# Display Pythonista console better
+try:
+  import console
+  console.set_font("Menlo-Regular", 12)
+except ImportError:
+  pass
+
+
 
 def main():
   #Load Lexer Configuration
@@ -12,23 +20,27 @@ def main():
   fo.close()
   
   #Test String
-  fdl_filename = 'simple.fdl'
-  fo = open(fdl_filename)
-  testStr = fo.read()
-  fo.close()
+  fdl_filename_list = ['std_logic_1164.fdl',
+                       'expr.fdl',
+                       'VariableDelay.fdl', 
+                       'TopLevel.fdl']
+  astList = []
+  for fdl_filename in fdl_filename_list:
+    #Read FDL file
+    fo = open(fdl_filename)
+    fdlStr = fo.read()
+    fo.close()
+    
+    #Initialize Lexer/SyntaxParser
+    lexer   = Lexer(fdlStr, gramConfig)
+    parser  = SyntaxParser(lexer)
+    
+    # Build AST
+    astList.append(parser.parse())
   
-  #Initialize Lexer
-  lexer   = Lexer(testStr, gramConfig)
-  parser  = Parser(lexer)
-  
-  # Build AST
-  ast = parser.parse()
-  
-  # Walk tree
-  #base, ext = os.path.splitext(fdl_filename)
-  #vhdlFilename = base + '.vhd'
-  #walker = SemanticAnalyzer(vhdlFilename, gramConfig)
-  #walker.visit(ast)
+  # Print AST for debugging
+  for ast in astList[1:]:
+    print('\n'.join(ast.log()))
   
   
 if __name__ == '__main__':

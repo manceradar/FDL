@@ -1,0 +1,28 @@
+#import vhdl_base.stages
+
+module VariableDelay:
+  generics:
+    uint stages = 8
+  ports:
+    # Clock
+    bit     in  clk
+    # Reset
+    bit     in  rst
+    bit     in  en
+    bit     in  din
+    uint(8) in  sel
+    bit     out dout
+
+arch VariableDelay(behavior):
+  declare:
+    # Shift register
+    bit[stages:1]  reg = x'00'
+
+  logic:
+ 
+    spro(clk,rst):
+      if (en == '1'):
+        reg  = reg[stages-1:2] & din
+      
+    dout = reg[sel]
+      

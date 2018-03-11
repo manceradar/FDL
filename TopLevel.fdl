@@ -1,0 +1,35 @@
+module TopLevel:
+  generics:
+    uint w = 2
+  ports:
+    # Clock
+    bit         in  clk
+    # Reset
+    bit         in  rst
+    bit         in  enable
+    bit         in  input
+    uint(8)     in  sel
+    bit[w-1:0]  out output
+
+arch TopLevel(behavior):
+  logic:
+ 
+    VarDelay0 VariableDelay(behavior):
+      generics:
+        stages = 6
+      ports:
+        clk    = clk
+        rst    = rst
+        en     = enable
+        din    = input
+        sel    = sel
+        dout   = output[0]
+        
+    VarDelay1 VariableDelay:
+      ports:
+        clk    = clk
+        rst    = rst
+        en     = enable
+        din    = input
+        sel    = sel
+        dout   = output[1]
