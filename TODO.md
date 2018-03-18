@@ -2,7 +2,7 @@
 
 ## Syntax Parser
 - [x] Add assert, log, warning, error statements
-- [ ] Add wait, file statements to testbench
+- [ ] Add delay, file statements to testbench
 - [ ] Add view to interfaces
 - [ ] Module instatiation
 - [ ] If define in module ports
@@ -28,6 +28,9 @@
 - [ ] Add 'delay' for time delay
 - [ ] Add 'delay' for event driven delay
 - [ ] Add 'task' for one time process
+- [ ] Add 'task' for repeating time process
+- [ ] Add 'routine' for sequential process that can have global variables?
+- [ ] Add 'routine' for repeating sequential process?
 - [ ] Simulation ends once all tasks have completed
 - [ ] Call task or repeat procedure defined in library?
 

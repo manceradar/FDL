@@ -42,6 +42,8 @@ def main():
   for ast in astList[1:]:
     print('\n'.join(ast.log()))
   
+  # Check semantics
+  semantics = SemanticAnalyzer(gramConfig)
   
 if __name__ == '__main__':
   main()

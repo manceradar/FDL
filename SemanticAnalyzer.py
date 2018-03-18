@@ -1,6 +1,8 @@
 from collections import OrderedDict
 from copy import deepcopy
 from NodeVisitor import NodeVisitor
+from SymbolTable import SymbolTable
+from Symbols import *
     
     
 # Perform deeper analysis of AST
@@ -9,12 +11,26 @@ from NodeVisitor import NodeVisitor
 # Check indexing and slicing has constant variables
 # Check array sizes match
 class SemanticAnalyzer (NodeVisitor):
-  def __init__(self,filename,config):
-    self.fid = open(filename, 'w')
-    self.vhdl = config['vhdl']
-    self.scope = ScopedSymbolTable(config['types'],'global',1,None)
-    self.fid.write(self.vhdl['fdlHeader'])
-    self.fid.write(self.vhdl['vhdlHeader'])
+  def __init__(self,config):
+    self.scope = SymbolTable('global',1,None)
+    self.__builtin__(config)
+    
+  def __builtin__(self, config):
+    # Loop over types
+    for x in config['types']:
+      typeSymbol = BuiltinTypeSymbol(x, self.scope.scopeLevel+1, self.scope)
+      self.scope.insert(typeSymbol)
+      
+    self.scope.status()
+    
+  def compile(self, astList):
+    # Visit all files
+    for ast in astList:
+      self.visit(ast)
+      
+    # Compile
+    for ast in astList:
+      self.compile(ast)
     
   def visit_file(self,node):
     # TODO: import

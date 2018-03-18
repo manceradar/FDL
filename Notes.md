@@ -51,19 +51,79 @@ user to define the direction of the underlying data with the view feature. TODO:
 
 ### Data Arrays
 
-TODO
+FDL handles arrays differently than VHDL. Instead of unique data types for each 
+array size, arrays are handled like C. FDL allows the user to extend any data type
+automatically. Additionally, arrays can be assign using curly braces.
+
+```
+# 1 dimensional array
+sint(8)[1:0] = {4, 5}
+# 2 dimensional array
+uint[0:3][0:1] = {{1,2}, {3,4}, {5,6}, {7,8}}
+```
+
+For function calls, the data array dimension needs to be specified by using the '*' 
+character. The dimension size doesn't need to be known, but can be determined in the
+function.
+
+```
+# and function with two, one dimensional 'bit' inputs
+function and(bit* left, bit* right):
+```
 
 ### Modules
+
+Modules are defined similarly to VHDL. A module is equivalent to an entity in VHDL.
+There is an optional generic and required port declaration for modules. Generics
+can have default values, but not required. Module instances must have all generic
+values defined either through assignment or default values. An example of a module
+named 'Test' with one generic and three ports.
+
+```
+module Test:
+  generics:
+    sint blah = 1
+  ports:
+    bit  in  CLK
+    bit  in  A
+    bit  out B
+```
 
 ### Libraries
 
 ### Testbenches
 
+Tasks are defined in libraries.
+Routines are defined in testbenches.
+
 ## FPGA Descriptor Language Compiler
 
 ### Lexical Analysis
 
-TODO
+The Lexer is responsible for taking a string from a .fdl file and convert it to a 
+list of tokens. The tokens are determined from the grammar-fdl.yaml configuration
+file. The tokens are found through regular expressions to the end of the line. Each
+token is found in order for proper parsing. The exception comes in the ID token, 
+where before it's assign an ID it is checked to be a keyword. FDL has the following keywords:
+
+| FDL Keywords ||||
+|--------------||||
+| import | library | function | enum |
+| module | blackbox | generics | ports |
+| in | out | inout | master |
+| slave | arch | declare | logic |
+| rename | for | case | struct |
+| interface | const | others | pro |
+| spro | apro | if | elif |
+| else | return | assert | print |
+| warning | error | delay | until |
+| on | task | single | repeat |
+| while | routine | open | not |
+| attr | next | exit |  |
+| and | or | nand | nor |
+| xor | xnor | sll | srl |
+| sla | sra | ror | rol |
+| mod | rem |||
 
 ### Syntax Parsing
 
@@ -116,17 +176,17 @@ DECLARE_BLOCK = (FUNC_DECL|STRUCT_DECL|INTERFACE_DECL|VAR_DECL|ENUM_DECL)
 TESTBENCH_DECL = TESTBENCH ID COLON
 TESTBENCH_GENERIC = (GENERICS COLON)?
 TESTBENCH_DECLARE = (FUNC_DECL|TASK_DECL|STRUCT_DECL|INTERFACE_DECL|VAR_DECL|ENUM_DECL)
-TESTBENCH_LOGIC = (ASSIGNMENT|FORBLOCK|CASEBLOCK|IFBLOCK|ASSERTION|PROBLOCK|MODULE_INST|SEQBLOCK|TASK_CALL)
+TESTBENCH_LOGIC = (ASSIGNMENT|FORBLOCK|CASEBLOCK|IFBLOCK|ASSERTION|PROBLOCK|MODULE_INST|ROUTINE_BLOCK|TASK_CALL)
 
 ARCH_STATEMENTS = (ASSIGNMENT|FORBLOCK|CASEBLOCK|IFBLOCK|ASSERTION|PROBLOCK|MODULE_INST|RENAME_STMT)
 FUNC_STATEMENTS = (ASSIGNMENT|FORBLOCK|CASEBLOCK|IFBLOCK|ASSERTION|REPORT|RETURN_STMT)
 TASK_STATEMENTS = (ASSIGNMENT|FORBLOCK|CASEBLOCK|IFBLOCK|ASSERTION|REPORT|DELAY_STMT|WHILEBLOCK|TASK_CALL)
-SEQ_STATEMENTS = (ASSIGNMENT|FORBLOCK|CASEBLOCK|IFBLOCK|ASSERTION|REPORT|DELAY_STMT|WHILEBLOCK|TASK_CALL)
+ROUTINE_STATEMENTS = (ASSIGNMENT|FORBLOCK|CASEBLOCK|IFBLOCK|ASSERTION|REPORT|DELAY_STMT|WHILEBLOCK|TASK_CALL)
 PRO_STATEMENTS  = (ASSIGNMENT|FORBLOCK|CASEBLOCK|IFBLOCK|ASSERTION|REPORT)
 
 PROBLOCK = (PRO|APRO|SPRO) CALL_ARG_LIST COLON
 
-SEQBLOCK = SEQ (CALL_ARG_LIST)? COLON
+ROUTINE_BLOCK = ROUTINE LPAREN (SINGLE|REPEAT) RPAREN COLON
 
 FORBLOCK = FOR ID ASSIGN SIMP_EXPR COLON
 

@@ -130,46 +130,63 @@ keywords:
     type:    WARNING
   - regex:   error
     type:    ERROR
-    
+  - regex:   delay
+    type:    DELAY
+  - regex:   until
+    type:    UNTIL
+  - regex:   'on'
+    type:    'ON'
+  - regex:   open
+    type:    OPEN
+  - regex:   task
+    type:    TASK
+  - regex:   single
+    type:    SINGLE
+  - regex:   repeat
+    type:    REPEAT
     
 # Parser format in order
 types:
   - name: bit
-    numArgs: [0]
-    minArgs: 0
-    maxArgs: 0
-    argTypes: [[None]]
-    tokens: BIT_INIT
+    paramName: []
+    paramTypeName: []
+    paramTypeDim: []
+    paramValue: []
   - name: sint
-    numArgs: [1]
-    minArgs: 1
-    maxArgs: 1
-    argTypes: [[INTEGER]]
-    tokens: INTEGER
+    paramName: [bitWidth]
+    paramTypeName: [uint]
+    paramTypeDim: [0]
+    paramValue: [32]
   - name: uint
-    numArgs: [1]
-    minArgs: 1
-    maxArgs: 1
-    argTypes: [[INTEGER]]
-    tokens: INTEGER
+    paramName: [bitWidth]
+    paramTypeName: [uint]
+    paramTypeDim: [0]
+    paramValue: [32]
   - name: float
-    numArgs: [0]
-    minArgs: 0
-    maxArgs: 0
-    argTypes: [[None]]
-    tokens: FLOAT
+    paramName: []
+    paramTypeName: []
+    paramTypeDim: []
+    paramValue: []
   - name: str
-    numArgs: [0]
-    minArgs: 0
-    maxArgs: 0
-    argTypes: [[None]]
-    tokens: STRING
+    paramName: []
+    paramTypeName: []
+    paramTypeDim: []
+    paramValue: []
   - name: bool
-    numArgs: [0]
-    minArgs: 0
-    maxArgs: 0
-    argTypes: [[None]]
-    tokens: BOOLEAN
+    paramName: []
+    paramTypeName: []
+    paramTypeDim: []
+    paramValue: []
+  - name: time
+    paramName: []
+    paramTypeName: []
+    paramTypeDim: []
+    paramValue: []
+  - name: freq
+    paramName: []
+    paramTypeName: []
+    paramTypeDim: []
+    paramValue: []
       
 vhdl:
   fdlHeader: |
