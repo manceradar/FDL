@@ -1,0 +1,34 @@
+library libraryName:
+
+  # Library parameter
+  int param = 8
+  
+  # Structure example (including function definitions)
+  struct structName(sint width):
+    # Params
+    bit[width-1:0] foo
+    bit[width-1:0] bar
+    
+  # Builtin type
+  # Bus has three interface signals (master/slave)
+  # two signals driven by master
+  # one signal driven by slave
+  #
+  #   master structName  data
+  #   master bit         valid
+  #   slave  bit         ready
+  interface bus(type T):
+    T   out data
+    bit out valid
+    bit in  ready
+
+  # User defined bus
+  interface customBus(bool useAck):
+    bit[7:0]    data
+    bit         valid
+    bit         ready
+    # This is valid! ack bit only defined in useAck true
+    if (useAck):
+      bit         ack
+  
+  
