@@ -11,9 +11,15 @@ from Symbols import *
 # Check indexing and slicing has constant variables
 # Check array sizes match
 class SemanticAnalyzer (NodeVisitor):
-  def __init__(self,config):
+  def __init__(self, config, builtin_libs):
     self.scope = SymbolTable('global',1,None)
     self.__builtin__(config)
+    
+    # Visit all builtin libraries
+    for lib in builtin_libs:
+      # Add all nodes
+      for node in lib.nodes[0].nodes:
+        self.visit(node)
     
   def __builtin__(self, config):
     # Loop over types
@@ -21,9 +27,14 @@ class SemanticAnalyzer (NodeVisitor):
       typeSymbol = BuiltinTypeSymbol(x, self.scope.scopeLevel+1, self.scope)
       self.scope.insert(typeSymbol)
       
+    # Loop over attributes
+    for x in config['attr']:
+      attrSymbol = AttrSymbol(x, self.scope.scopeLevel+1, self.scope)
+      self.scope.insert(attrSymbol)
+      
     self.scope.status()
     
-  def compile(self, astList):
+  def process(self, astList):
     # Visit all files
     for ast in astList:
       self.visit(ast)

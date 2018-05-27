@@ -145,7 +145,10 @@ keywords:
   - regex:   repeat
     type:    REPEAT
     
-# Parser format in order
+    
+#----------------------------------
+# Builtin data types
+#----------------------------------
 types:
   - name: bit
     paramName: []
@@ -187,6 +190,74 @@ types:
     paramTypeName: []
     paramTypeDim: []
     paramValue: []
+    
+#----------------------------------
+# Builtin attributes
+#----------------------------------
+attr:
+  - name: len
+    paramName: [dim]
+    paramTypeName: [uint]
+    paramTypeDim: [0]
+    paramValue: [0]
+    returnTypeName: [uint]
+    returnTypeDim: [0]
+  - name: left
+    paramName: [dim]
+    paramTypeName: [uint]
+    paramTypeDim: [0]
+    paramValue: [0]
+    returnTypeName: [uint]
+    returnTypeDim: [0]
+  - name: right
+    paramName: [dim]
+    paramTypeName: [uint]
+    paramTypeDim: [0]
+    paramValue: [0]
+    returnTypeName: [uint]
+    returnTypeDim: [0]
+  - name: low
+    paramName: [dim]
+    paramTypeName: [uint]
+    paramTypeDim: [0]
+    paramValue: [0]
+    returnTypeName: [uint]
+    returnTypeDim: [0]
+  - name: high
+    paramName: [dim]
+    paramTypeName: [uint]
+    paramTypeDim: [0]
+    paramValue: [0]
+    returnTypeName: [uint]
+    returnTypeDim: [0]
+  - name: range
+    paramName: [dim]
+    paramTypeName: [uint]
+    paramTypeDim: [0]
+    paramValue: [0]
+    returnTypeName: [uint, uint, uint]
+    returnTypeDim: [0, 0, 0]
+  - name: valStr
+    paramName: []
+    paramTypeName: []
+    paramTypeDim: []
+    paramValue: []
+    returnTypeName: [str]
+    returnTypeDim: [0]
+  - name: typeStr
+    paramName: []
+    paramTypeName: []
+    paramTypeDim: []
+    paramValue: []
+    returnTypeName: [str]
+    returnTypeDim: [0]
+  - name: ascending
+    paramName: [dim]
+    paramTypeName: [uint]
+    paramTypeDim: [0]
+    paramValue: [0]
+    returnTypeName: [bool]
+    returnTypeDim: [0]
       
 vhdl:
   fdlHeader: |

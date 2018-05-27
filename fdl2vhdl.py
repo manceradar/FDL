@@ -11,19 +11,19 @@ try:
 except ImportError:
   pass
 
-
-
 def main():
   #Load Lexer Configuration
   fo = open('grammer-fdl.yaml')
   gramConfig = yaml.load(fo.read())
   fo.close()
   
-  #Test String
+  #FDL source files
   fdl_filename_list = ['std_logic_1164.fdl',
                        'expr.fdl',
                        'VariableDelay.fdl', 
                        'TopLevel.fdl']
+                       
+  # Build AST
   astList = []
   for fdl_filename in fdl_filename_list:
     #Read FDL file
@@ -35,7 +35,7 @@ def main():
     lexer   = Lexer(fdlStr, gramConfig)
     parser  = SyntaxParser(lexer)
     
-    # Build AST
+    # Append AST
     astList.append(parser.parse())
   
   # Print AST for debugging
@@ -43,7 +43,8 @@ def main():
     print('\n'.join(ast.log()))
   
   # Check semantics
-  semantics = SemanticAnalyzer(gramConfig)
+  semAnalyzer = SemanticAnalyzer(gramConfig, astList[0:1])
+  semAnalyzer.process(astList[1:])
   
 if __name__ == '__main__':
   main()

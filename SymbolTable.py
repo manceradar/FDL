@@ -62,23 +62,17 @@ class SymbolTable (object):
         
   def status(self):
     # Plot header
-    width = 100
+    width = 104
     header = '|{0}|'.format('Scope Symbol Table'.center(width-2,' '))
     scopeDetail = '|{0}|'.format('Name: "{0}", Scope: {1}'.format(self.scopeName, self.scopeLevel).center(width-2,' '))
-    lines = ['=' * width, header, scopeDetail, '=' * width]
+    lines = ['=' * width, header, scopeDetail]
+    print('\n'.join(lines))
     
-    linesType = self.statusTypes(width)
-    if (linesType[0]):
-      lines += linesType[1]
+    self.statusTypes(width)
+    self.statusFunctions(width)
+    self.statusAttributes(width)
       
-    linesFunc = self.statusFunctions(width)
-    if (linesFunc[0]):
-      lines += linesFunc[1]
-      
-    linesAttr = self.statusAttributes(width)
-    if (linesAttr[0]):
-      lines += linesAttr[1]
-      
+    lines = []
     linesLib = self.statusLibrary(width)
     if (linesLib[0]):
       lines += linesLib[1]
@@ -96,22 +90,12 @@ class SymbolTable (object):
     print('\n'.join(lines))
     
   def statusTypes(self, width):
-    # Initialize output
-    lines = []
-    
-    # Plot types
-    typeWidth = (width-2)/4
-    leftOver = ' '*(width - 2 - 4*typeWidth)
-    
     # Create header
-    nameStr = 'Name'.ljust(typeWidth,' ')
-    paramNameStr = 'Param Name'.ljust(typeWidth,' ')
-    paramTypeStr = 'Type[Dim]'.ljust(typeWidth,' ')
-    paramInitStr = 'Init. Value'.ljust(typeWidth,' ')
-    lines.append('|{0}|'.format('Types'.center(width-2,' ')))
-    lines.append('-'*width)
-    lines.append('|{0}{1}{2}{3}{4}|'.format(nameStr, paramNameStr, paramTypeStr, paramInitStr, leftOver))
-    lines.append('-'*width)
+    header = 'Types'
+    nameList = ['Name']
+    paramNameList = ['Param Name']
+    paramTypeList = ['Param Type[Dim]']
+    paramInitList = ['Default Value']
     
     # List types
     found = False
@@ -122,35 +106,26 @@ class SymbolTable (object):
         params = symbol.returnParams()
         paramName = [param.name for param in params]
         paramTypeDim = ['{0}[{1}]'.format(param.typeName, param.typeDim) for param in params]
-        tmp0 = symbol.name.ljust(typeWidth,' ')
-        tmp1 = ','.join(paramName).ljust(typeWidth,' ')
-        tmp2 = ','.join(paramTypeDim).ljust(typeWidth,' ')
-        #tmp3 = ','.join(symbol.initValue).ljust(typeWidth,' ')
-        tmp3 = ' '*typeWidth
-        typeStr = '{0}{1}{2}{3}{4}'.format(tmp0, tmp1, tmp2, tmp3, leftOver)
-        lines.append('|{0}|'.format(typeStr))
+        paramValue = [str(param.value) for param in params]
+        nameList.append(symbol.name)
+        paramNameList.append(','.join(paramName))
+        paramTypeList.append(','.join(paramTypeDim))
+        paramInitList.append(','.join(paramValue))
+        
+    tableLines = self.formatTable(header, width, nameList, paramNameList, 
+                                  paramTypeList, paramInitList)
           
-    return (found, lines)
+    if (found):
+      print('\n'.join(tableLines))
     
   def statusFunctions(self, width):
-    # Initialize output
-    lines = []
-        
-    # Plot functions
-    numCol = 4
-    funcWidth = (width-2)/numCol
-    leftOver = ' '*(width - 2 - numCol*funcWidth)
-    
     # Create header
-    nameStr = 'Name'.ljust(funcWidth,' ')
-    paramNameStr = 'Param Name'.ljust(funcWidth,' ')
-    synthStr = 'Synth?'.ljust(funcWidth,' ')
-    returnStr = 'Return Type[Dim]'.ljust(funcWidth,' ')
-    lines.append('-'*width)
-    lines.append('|{0}|'.format('Functions'.center(width-2,' ')))
-    lines.append('-'*width)
-    lines.append('|{0}{1}{2}{3}{4}|'.format(nameStr, paramNameStr, synthStr, returnStr, leftOver))
-    lines.append('-'*width)
+    header = 'Functions'
+    nameList = ['Name']
+    paramNameList = ['Param Name']
+    paramTypeList = ['Param Type[Dim]']
+    synthList = ['Synth?']
+    returnList = ['Return Type[Dim]']
     
     # List functions
     found = False
@@ -171,36 +146,27 @@ class SymbolTable (object):
         numReturnVars = len(symbol.returnTypeName)
         returnTypeDim = ['{0}[{1}]'.format(symbol.returnTypeName[x], symbol.returnTypeDim[x]) for x in range(numReturnVars)]
         
-        nameStr = symbol.name.ljust(funcWidth,' ')
-        paramNameStr = ','.join(paramName).ljust(funcWidth,' ')
-        synthStr = str(symbol.synth).ljust(funcWidth,' ')
-        returnStr = ','.join(returnTypeDim).ljust(funcWidth,' ')
-        typeStr = '{0}{1}{2}{3}{4}'.format(nameStr, paramNameStr, synthStr, returnStr, leftOver)
-        lines.append('|{0}|'.format(typeStr))
-          
+        nameList.append(symbol.name)
+        paramNameList.append(','.join(paramName))
+        paramTypeList.append(','.join(paramTypeDim))
+        synthList.append(str(symbol.synth))
+        returnList.append(','.join(returnTypeDim))
+        
+    tableLines = self.formatTable(header, width, nameList, paramNameList, 
+                                  paramTypeList, synthList, returnList)
     
-    return (found, lines)
+    if (found):
+      print('\n'.join(tableLines))
     
   def statusAttributes(self, width):
-    # Initialize output
-    lines = []
-        
-    # Plot functions
-    funcWidth = (width-2)/4
-    leftOver = ' '*(width - 2 - 4*funcWidth)
-    
     # Create header
-    nameStr = 'Name'.ljust(funcWidth,' ')
-    paramNameStr = 'Param Name'.ljust(funcWidth,' ')
-    paramTypeStr = 'Type[Dim]'.ljust(funcWidth,' ')
-    returnStr = 'Return Type[Dim]'.ljust(funcWidth,' ')
-    lines.append('-'*width)
-    lines.append('|{0}|'.format('Attributes'.center(width-2,' ')))
-    lines.append('-'*width)
-    lines.append('|{0}{1}{2}{3}{4}|'.format(nameStr, paramNameStr, paramTypeStr, returnStr, leftOver))
-    lines.append('-'*width)
+    header = 'Attributes'
+    nameList = ['Name']
+    paramNameList = ['Param Name']
+    paramTypeList = ['Param Type[Dim]']
+    returnList = ['Return Type[Dim]']
     
-    # List attributes
+    # List functions
     found = False
     for name,sym in self._symbol.iteritems():
       if sym[0] is 'attr':
@@ -219,15 +185,16 @@ class SymbolTable (object):
         numReturnVars = len(symbol.returnTypeName)
         returnTypeDim = ['{0}[{1}]'.format(symbol.returnTypeName[x], symbol.returnTypeDim[x]) for x in range(numReturnVars)]
         
-        nameStr = symbol.name.ljust(funcWidth,' ')
-        paramNameStr = ','.join(paramName).ljust(funcWidth,' ')
-        paramTypeStr = ','.join(paramTypeDim).ljust(funcWidth,' ')
-        returnStr = ','.join(returnTypeDim).ljust(funcWidth,' ')
-        typeStr = '{0}{1}{2}{3}{4}'.format(nameStr, paramNameStr, paramTypeStr, returnStr, leftOver)
-        lines.append('|{0}|'.format(typeStr))
-          
+        nameList.append(symbol.name)
+        paramNameList.append(','.join(paramName))
+        paramTypeList.append(','.join(paramTypeDim))
+        returnList.append(','.join(returnTypeDim))
+        
+    tableLines = self.formatTable(header, width, nameList, paramNameList, 
+                                  paramTypeList, returnList)
     
-    return (found, lines)
+    if (found):
+      print('\n'.join(tableLines))
     
   def statusLibrary(self, width):
     # Initialize output
@@ -397,3 +364,48 @@ class SymbolTable (object):
         
     return (found, lines)
     
+  def formatLine(self, maxColLen, tableLeftOver, ind, args):
+    # Create Line
+    line = ''
+    for x in range(len(args)):
+      leftOver = maxColLen[x]-len(args[x][ind])-2
+      line += '| {0}{1} '.format(args[x][ind],' '*leftOver)
+    line += '{0}|'.format(' '*tableLeftOver)
+    
+    return line
+
+  def formatTable(self, header, maxTableWidth, *args):
+    # Constants
+    numCol = len(args)
+    
+    if not all([len(x)==len(args[0]) for x in args]):
+      raise Exception('FormatTable: All columns not same size')
+    
+    # Maximum length of all columns
+    maxlenCol = []
+    for arg in args:
+      lenList = [len(x) for x in arg]
+      maxlenCol.append(max(lenList)+2)
+      
+    # Leftover space in table
+    tableLeftOver = maxTableWidth- (sum(maxlenCol) + numCol + 1)
+    
+    # Determine table width
+    if tableLeftOver<0:
+      raise Exception('FormatTable: Console not big enough')
+    
+    outerSepLine = '|'+'='*(maxTableWidth-2)+'|'
+    innerSepLine = '|'+'-'*(maxTableWidth-2)+'|'
+    headerLine = '|{0}|'.format(header.center(maxTableWidth-2,' '))
+    
+    # Create table
+    tableLines = []
+    tableLines.append(outerSepLine)
+    tableLines.append(headerLine)
+    tableLines.append(innerSepLine)
+    tableLines.append(self.formatLine(maxlenCol, tableLeftOver, 0, args))
+    tableLines.append(innerSepLine)
+    for ind in range(1,len(args[0])):
+      tableLines.append(self.formatLine(maxlenCol, tableLeftOver, ind, args))
+    
+    return tableLines
