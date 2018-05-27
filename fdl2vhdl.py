@@ -1,6 +1,4 @@
-from Lexer import Lexer
-from SyntaxParser import SyntaxParser
-from SemanticAnalyzer import SemanticAnalyzer
+import fdl
 import yaml
 import os
 
@@ -13,15 +11,15 @@ except ImportError:
 
 def main():
   #Load Lexer Configuration
-  fo = open('grammer-fdl.yaml')
+  fo = open('builtin/grammer-fdl.yaml')
   gramConfig = yaml.load(fo.read())
   fo.close()
   
   #FDL source files
-  fdl_filename_list = ['std_logic_1164.fdl',
-                       'expr.fdl',
-                       'VariableDelay.fdl', 
-                       'TopLevel.fdl']
+  fdl_filename_list = ['builtin/std_logic_1164.fdl',
+                       'examples/expr.fdl',
+                       'examples/VariableDelay.fdl', 
+                       'examples/TopLevel.fdl']
                        
   # Build AST
   astList = []
@@ -32,8 +30,8 @@ def main():
     fo.close()
     
     #Initialize Lexer/SyntaxParser
-    lexer   = Lexer(fdlStr, gramConfig)
-    parser  = SyntaxParser(lexer)
+    lexer   = fdl.Lexer(fdlStr, gramConfig)
+    parser  = fdl.SyntaxParser(lexer)
     
     # Append AST
     astList.append(parser.parse())
@@ -43,7 +41,7 @@ def main():
     print('\n'.join(ast.log()))
   
   # Check semantics
-  semAnalyzer = SemanticAnalyzer(gramConfig, astList[0:1])
+  semAnalyzer = fdl.SemanticAnalyzer(gramConfig, astList[0:1])
   semAnalyzer.process(astList[1:])
   
 if __name__ == '__main__':
