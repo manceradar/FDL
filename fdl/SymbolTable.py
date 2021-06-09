@@ -48,7 +48,7 @@ class SymbolTable (object):
         
   def returnParams(self):
     params = []
-    for name,sym in self._symbol.iteritems():
+    for name,sym in iter(self._symbol.items()):
       if (sym[1].isParameter()):
         params.append(sym[1])
           
@@ -56,7 +56,7 @@ class SymbolTable (object):
     
   def removeImports(self):
     # Look for all imports and remove them
-    for name,sym in self._symbol.iteritems():
+    for name,sym in iter(self._symbol.items()):
       if (sym[1].isImported()):
         del self._symbol[name]
         
@@ -99,7 +99,7 @@ class SymbolTable (object):
     
     # List types
     found = False
-    for name,sym in self._symbol.iteritems():
+    for name,sym in iter(self._symbol.items()):
       if sym[0] is 'type':
         found = True
         symbol = sym[1]
@@ -129,7 +129,7 @@ class SymbolTable (object):
     
     # List functions
     found = False
-    for name,sym in self._symbol.iteritems():
+    for name,sym in iter(self._symbol.items()):
       if sym[0] is 'function':
         found = True
         symbol = sym[1]
@@ -168,7 +168,7 @@ class SymbolTable (object):
     
     # List functions
     found = False
-    for name,sym in self._symbol.iteritems():
+    for name,sym in iter(self._symbol.items()):
       if sym[0] is 'attr':
         found = True
         symbol = sym[1]
@@ -201,8 +201,8 @@ class SymbolTable (object):
     lines = []
     
     # Plot variables
-    varWidth = (width-2)/5
-    leftOver = ' '*(width - 2 - 5*varWidth)
+    varWidth = int((width-2)/5)
+    leftOver = ' '*int(width - 2 - 5*varWidth)
     
     # Create header
     nameStr = 'Name'.ljust(varWidth,' ')
@@ -218,7 +218,7 @@ class SymbolTable (object):
     
     # List variables
     found = False
-    for name,sym in self._symbol.iteritems():
+    for name,sym in iter(self._symbol.items()):
       if sym[0] is 'library':
         found = True
         symbol = sym[1]
@@ -227,7 +227,7 @@ class SymbolTable (object):
         varNum   = 0
         taskNum  = 0
         typeNum  = 0
-        for name,sym in symbol._symbol.iteritems():
+        for name,sym in iter(symbol._symbol.items()):
           if (sym[0] is 'signal'):
             varNum += 1
           elif (sym[0] is 'function'):
@@ -254,8 +254,8 @@ class SymbolTable (object):
     
     # Plot variables
     numCol   = 4
-    varWidth = (width-2)/numCol
-    leftOver = ' '*(width - 2 - numCol*varWidth)
+    varWidth = int((width-2)/numCol)
+    leftOver = ' '*int(width - 2 - numCol*varWidth)
     
     # Create header
     nameStr = 'Name'.ljust(varWidth,' ')
@@ -271,14 +271,14 @@ class SymbolTable (object):
     
     # List variables
     found = False
-    for name,sym in self._symbol.iteritems():
+    for name,sym in iter(self._symbol.items()):
       if sym[0] is 'module':
         found = True
         symbol = sym[1]
        
         genNum  = 0
         portNum = 0
-        for name,sym in symbol._symbol.iteritems():
+        for name,sym in iter(symbol._symbol.items()):
           if (sym[0] is 'signal'):
             if (sym[1].isPort()):
               portNum += 1
@@ -297,29 +297,18 @@ class SymbolTable (object):
     return (found, lines)
     
   def statusVariables(self, width):
-    # Initialize output
-    lines = []
-    
-    # Plot variables
-    numCol = 5
-    varWidth = (width-2)/numCol
-    leftOver = ' '*(width - 2 - numCol*varWidth)
     
     # Create header
-    nameStr = 'Name(Ref,Imp)'.ljust(varWidth,' ')
-    portStr = 'Port/Gen(C)'.ljust(varWidth,' ')
-    typeStr = 'Type'.ljust(varWidth,' ')
-    val1Str = 'Init. Value'.ljust(varWidth,' ')
-    val2Str = 'Asgn. Value'.ljust(varWidth,' ')
-    lines.append('-'*width)
-    lines.append('|{0}|'.format('Signals'.center(width-2,' ')))
-    lines.append('-'*width)
-    lines.append('|{0}{1}{2}{3}{4}{5}|'.format(nameStr, portStr, typeStr, val1Str, val2Str, leftOver))
-    lines.append('-'*width)
+    header   = 'Signals'
+    nameList = ['Name(Ref,Imp)']
+    portList = ['Port/Gen(C)']
+    typeList = ['Type']
+    val1List = ['Init. Value']
+    val2List = ['Asgn. Value']
     
     # List variables
     found = False
-    for name,sym in self._symbol.iteritems():
+    for name,sym in iter(self._symbol.items()):
       if sym[0] is 'signal':
         found = True
         symbol = sym[1]
@@ -335,14 +324,14 @@ class SymbolTable (object):
         if (symbol.array is None):
           dimStr = '[{0}]'.format(symbol.typeDim)
         else:
-          dimStr = symbol.array
+          dimStr = str(symbol.array)
         
         typeStr = '{0}({1}){2}'.format(symbol.typeName, paramValue, dimStr)
         
         nameStr = '{0}({1},{2})'.format(symbol.name, symbol.isReferenced(), symbol.isImported())
         nameStr = nameStr.replace('True','T')
         nameStr = nameStr.replace('False','F')
-        nameStr = nameStr.ljust(varWidth,' ')
+        
         if (symbol.isPort()):
           portStr = '{0}({1})'.format(symbol.portType, str(symbol.const))
         elif (symbol.isGeneric()):
@@ -351,18 +340,28 @@ class SymbolTable (object):
           portStr = '({0})'.format(str(symbol.const))
         portStr = portStr.replace('True','T')
         portStr = portStr.replace('False','F')
-        portStr = portStr.ljust(varWidth,' ')
-        typeStr = typeStr.ljust(varWidth,' ')
+        portStr = portStr
+        
+        typeStr = typeStr
+        
         val1Str = str(symbol.initValue).replace('\'','')
         val1Str = val1Str.replace('None','N')
-        val1Str = val1Str.replace('\n',',').ljust(varWidth,' ')
+        val1Str = val1Str.replace('\n',',')
+        
         val2Str = str(symbol.value).replace('\'','')
         val2Str = val2Str.replace('None','N')
-        val2Str = val2Str.replace('\n',',').ljust(varWidth,' ')
-        typeStr = '{0}{1}{2}{3}{4}{5}'.format(nameStr, portStr, typeStr, val1Str, val2Str, leftOver)
-        lines.append('|{0}|'.format(typeStr))
+        val2Str = val2Str.replace('\n',',')
         
-    return (found, lines)
+        nameList.append(nameStr)
+        portList.append(portStr)
+        typeList.append(typeStr)
+        val1List.append(val1Str)
+        val2List.append(val2Str)
+        
+    tableLines = self.formatTable(header, width, nameList, portList, 
+                                  typeList, val1List, val2List)
+        
+    return (found, tableLines)
     
   def formatLine(self, maxColLen, tableLeftOver, ind, args):
     # Create Line

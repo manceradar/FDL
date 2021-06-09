@@ -1,8 +1,8 @@
 from collections import OrderedDict
 from copy import deepcopy
-from NodeVisitor import NodeVisitor
-from SymbolTable import SymbolTable
-from Symbols import *
+from .NodeVisitor import NodeVisitor
+from .SymbolTable import SymbolTable
+from .Symbols import *
     
     
 # Perform deeper analysis of AST
@@ -16,16 +16,21 @@ class SemanticAnalyzer (NodeVisitor):
     self.__builtin__(config)
     
     # Visit all builtin libraries
-    for lib in builtin_libs:
-      # Add all nodes
-      for node in lib.nodes[0].nodes:
-        self.visit(node)
+    #for lib in builtin_libs:
+    #  # Add all nodes
+    #  for node in lib.nodes[0].nodes:
+    #    self.visit(node)
     
   def __builtin__(self, config):
     # Loop over types
     for x in config['types']:
       typeSymbol = BuiltinTypeSymbol(x, self.scope.scopeLevel+1, self.scope)
       self.scope.insert(typeSymbol)
+      
+    # Loop over functions
+    for x in config['func']:
+      funcSymbol = FuncSymbol(x, self.scope.scopeLevel+1, self.scope)
+      self.scope.insert(funcSymbol)
       
     # Loop over attributes
     for x in config['attr']:
@@ -43,16 +48,22 @@ class SemanticAnalyzer (NodeVisitor):
     for ast in astList:
       self.compile(ast)
     
-  def visit_file(self,node):
-    # TODO: import
-    for ind in node.importNodes:
+  def visit_file(self, node):
+    # Go to nodes
+    for ind in node.nodes:
       self.visit(ind)
+      
+  def visit_library(self, node):
+    # Create new library scope
+    libSym = LibrarySymbol(node, self.scope)
     
-    # Module
-    self.visit(node.moduleNode)
+    # Set library as new scope
+    self.scope = libSym
     
-    # Close file
-    self.fid.close()
+    # Loop over nodes
+    for node in node.nodes:
+      self.visit(node)
+      self.scope.status()
     
   def visit_module(self,node):
     # Check generic declarations
@@ -77,37 +88,76 @@ class SemanticAnalyzer (NodeVisitor):
     for sm in node.statements:
       self.visit(sm)
       
-  def visit_decl(self,node):
-    # Check declarations
-    # Determine config arg types
-    typeConfigTypes = []
-    for arg in node.typeConfig:
-      argSym = self.visit(arg)
+  def visit_function(self, node):
+    # Create symbol and set new scope
+    func = FuncSymbol(node, self.scope.scopeLevel+1,self.scope)
+    self.scope = func
+    
+    # Check input parameters
+    for param in node.params:
+      # Verify data type
+      self.scope.lookup(param.type, 'type')
       
-      # Variables must be constant
-      if (argSym.const):
-        typeConfigTypes.append(argSym.type)
-      else:
-        raise Exception('{0} must be constant'.format(argSym.name))
+      # Create param symbol and insert into function scope
+      paramSym = ParamSymbol(param)
+      self.scope.insert(paramSym)
+      
+    # Verify param declarations for this function
+    func.verifyParamDecl()
+    
+    # Loop over statements in
+    for stmt in node.statements:
+      self.visit(stmt)
+      
+    # Return back original scope
+    self.scope = self.scope.enclosingScope
+      
+    # Statements validated, now add overloaded functions
+    params = func.returnParams()
+    
+    names = calcAllFuncNames(func.name, params)
+    for name in names:
+      func.name = name
+      self.scope.insert(func)
+      
+    self.scope.status()
+      
+  def visit_return(self, node):
+    # Look up types and dimensions
+    for var in node.vars:
+      varSym = self.visit(var)
+      self.scope.returnTypeName.append(varSym.typeName)
+      self.scope.returnTypeDim.append(varSym.typeDim)
+    
+      
+  def visit_decl(self, node):
+    # Check declarations
+    
+    # Verify type exists
+    typeDef = self.scope.lookup(node.typeName, 'type')
+    
+    # Verify input parameters 
+    paramSym = [self.visit(param) for param in node.params]
+    params = typeDef.verifyInputs(paramSym)
        
-    # Replace array indicies with values 
+    # Replace array indicies with values
     self.checkArray(node)
-          
+    
+    # Type, array size, and init value verified
+    varDecl = SignalSymbol(node, params)
+    varDecl.setArray(node.array)
+    
     # Validate Init value
-    if (node.value != [None]):
+    if (node.value != None):
       # No interface port can have value
       if (node.port is None):
-        initVal = self.visit(node.value)
+        initVar = self.visit(node.value)
+        varDecl.assignInitValue(initVar)
       else:
         print('Ports can not have init value')
         raise Exception('Port Init')
-    else:
-      initVal = VarSymbol()
     
-    # Verify Type and TypeConfig valid
-    print(node.array)
-    print(initVal)
-    varAdded  = self.scope.addVariable(node,typeConfigTypes,initVal)
+    varAdded  = self.scope.insert(varDecl)
     
     if not varAdded:
       raise Exception('Var Decl Invalid')
@@ -116,7 +166,7 @@ class SemanticAnalyzer (NodeVisitor):
     # Verify args
     argList = node.args
     if (len(argList) != 2):
-      raise Exception('spro too many args')
+      raise Exception('spro too many args') 
       
     # Verify args
     for arg in argList:
@@ -135,12 +185,21 @@ class SemanticAnalyzer (NodeVisitor):
     for stmt in node.statements:
       self.visit(stmt)
       
-  def visit_assignment(self,node):
+  def visit_assignment(self, node):
     leftVar = self.visit(node.leftVar)
     
     rightExpr = self.visit(node.rightExpr)
+    
+  def visit_array(self, node):
+    # load elements
+    elements = []
+    for elem in node.nodes:
+      elemSym = self.visit(elem)
+      elements.append(elemSym)
       
-  def visit_expr(self,node):
+    return elements
+      
+  def visit_expr(self, node):
     # First visit node to verify it
     # Validate 'left'
     left = self.visit(node.left)
@@ -184,22 +243,24 @@ class SemanticAnalyzer (NodeVisitor):
     # Validate
     return self.visit(node)
     
-  def visit_num(self, node):
+  def visit_const(self, node):
     # Number, return values
-    return VarSymbol(None,node.type,node.const,node.array,node.value)
+    sigSym = SignalSymbol(node, node.params)
+    sigSym.setArray([[0,0]])
+    sigSym.assignConstValue(node.value)
+    return sigSym
     
   def visit_var(self, node):
-    # Replace array indicies with values 
+    # Replace array indicies with values
     self.checkArray(node)
     
-    declNode = self.scope.lookupVar(node)
-    if (declNode is None):
-      return VarSymbol(False,False,False,False,False)
-    else: 
-      return VarSymbol(node.name,declNode.type, declNode.const,declNode.array,declNode.value) 
+    declNode = self.scope.lookup(node.name, 'signal')
+    declNode.gotReferenced()
+    
+    return declNode
       
-  def checkArray(self,node):
-    if (node.array == [None]):
+  def checkArray(self, node):
+    if (node.array == None):
       return
       
     # If var is a declaration, array values must be const
@@ -209,20 +270,19 @@ class SemanticAnalyzer (NodeVisitor):
     arrayVal = node.array
     for i,arg in enumerate(node.array):
       for j,val in enumerate(arg):
-        if (val is 0):
-          continue
         
         # Visit expr
         varSym = self.visit(val)
         
         # Variables must be integer
-        typeValid = varSym.type in ['INTEGER','sint','uint']
+        typeValid = varSym.typeName in ['sint','uint']
         
         # Truth table to error when isDecl and varSym is not const
         constValid = not(isDecl) or varSym.const
         
         if (constValid and typeValid):
           # If value is none, just give name
+          #print(varSym)
           if (varSym.value is None):
             arrayVal[i][j] = varSym.name
           else:

@@ -157,12 +157,12 @@ types:
     paramValue: []
   - name: sint
     paramName: [bitWidth]
-    paramTypeName: [uint]
+    paramTypeName: [sint]
     paramTypeDim: [0]
     paramValue: [32]
   - name: uint
     paramName: [bitWidth]
-    paramTypeName: [uint]
+    paramTypeName: [sint]
     paramTypeDim: [0]
     paramValue: [32]
   - name: float
@@ -197,45 +197,45 @@ types:
 attr:
   - name: len
     paramName: [dim]
-    paramTypeName: [uint]
+    paramTypeName: [sint]
     paramTypeDim: [0]
     paramValue: [0]
-    returnTypeName: [uint]
+    returnTypeName: [sint]
     returnTypeDim: [0]
   - name: left
     paramName: [dim]
-    paramTypeName: [uint]
+    paramTypeName: [sint]
     paramTypeDim: [0]
     paramValue: [0]
-    returnTypeName: [uint]
+    returnTypeName: [sint]
     returnTypeDim: [0]
   - name: right
     paramName: [dim]
-    paramTypeName: [uint]
+    paramTypeName: [sint]
     paramTypeDim: [0]
     paramValue: [0]
-    returnTypeName: [uint]
+    returnTypeName: [sint]
     returnTypeDim: [0]
   - name: low
     paramName: [dim]
-    paramTypeName: [uint]
+    paramTypeName: [sint]
     paramTypeDim: [0]
     paramValue: [0]
-    returnTypeName: [uint]
+    returnTypeName: [sint]
     returnTypeDim: [0]
   - name: high
     paramName: [dim]
-    paramTypeName: [uint]
+    paramTypeName: [sint]
     paramTypeDim: [0]
     paramValue: [0]
-    returnTypeName: [uint]
+    returnTypeName: [sint]
     returnTypeDim: [0]
   - name: range
     paramName: [dim]
-    paramTypeName: [uint]
+    paramTypeName: [sint]
     paramTypeDim: [0]
     paramValue: [0]
-    returnTypeName: [uint, uint, uint]
+    returnTypeName: [sint, sint, sint]
     returnTypeDim: [0, 0, 0]
   - name: valStr
     paramName: []
@@ -253,10 +253,64 @@ attr:
     returnTypeDim: [0]
   - name: ascending
     paramName: [dim]
-    paramTypeName: [uint]
+    paramTypeName: [sint]
     paramTypeDim: [0]
     paramValue: [0]
     returnTypeName: [bool]
+    returnTypeDim: [0]
+    
+#----------------------------------
+# Builtin attributes
+#----------------------------------
+func:
+  - name: not
+    paramName: [left]
+    paramTypeName: [bit]
+    paramTypeDim: [0]
+    paramValue: [None]
+    returnTypeName: [bit]
+    returnTypeDim: [0]
+  - name: and
+    paramName: [left, right]
+    paramTypeName: [bit, bit]
+    paramTypeDim: [0, 0]
+    paramValue: [None, None]
+    returnTypeName: [bit]
+    returnTypeDim: [0]
+  - name: nand
+    paramName: [left, right]
+    paramTypeName: [bit, bit]
+    paramTypeDim: [0, 0]
+    paramValue: [None, None]
+    returnTypeName: [bit]
+    returnTypeDim: [0]
+  - name: or
+    paramName: [left, right]
+    paramTypeName: [bit, bit]
+    paramTypeDim: [0, 0]
+    paramValue: [None, None]
+    returnTypeName: [bit]
+    returnTypeDim: [0]
+  - name: nor
+    paramName: [left, right]
+    paramTypeName: [bit, bit]
+    paramTypeDim: [0, 0]
+    paramValue: [None, None]
+    returnTypeName: [bit]
+    returnTypeDim: [0]
+  - name: xor
+    paramName: [left, right]
+    paramTypeName: [bit, bit]
+    paramTypeDim: [0, 0]
+    paramValue: [None, None]
+    returnTypeName: [bit]
+    returnTypeDim: [0]
+  - name: xnor
+    paramName: [left, right]
+    paramTypeName: [bit, bit]
+    paramTypeDim: [0, 0]
+    paramValue: [None, None]
+    returnTypeName: [bit]
     returnTypeDim: [0]
       
 vhdl:

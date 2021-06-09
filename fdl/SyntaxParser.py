@@ -1,13 +1,14 @@
-from Lexer import Lexer
-from Lexer import Token
+from .Lexer import Lexer
+from .Lexer import Token
 import re
 import numpy as np
+from copy import deepcopy
 
 def determineBits(intVal):
   if (intVal == 0):
-    return 1
+    return 2
   else:
-    return int(np.ceil(np.log2(abs(intVal)))+1)
+    return int(np.ceil(np.log2(abs(intVal)))+2)
 
 #Simple class to keep track of code scope. FDL is
 #scoped using tabs/spaces.
@@ -42,7 +43,7 @@ class BaseAST(object):
     self.comments = comments
     
     #Add variables based on dict values
-    for var, val in grammerDict.iteritems():
+    for var, val in iter(grammerDict.items()):
       setattr(self, var, val)
             
   def log(self,tabLevel=0):
@@ -52,7 +53,7 @@ class BaseAST(object):
     lines.append('{0}{1}'.format(tabLevel*' ', self.base))
     lines.append('{0}{1}: {2}'.format((tabLevel+2)*' ', 'comments', self.comments))
     tabLevel += 2
-    for var, val in self.__dict__.iteritems():
+    for var, val in iter(self.__dict__.items()):
       if (var in ['base', 'comments']):
         continue
       
@@ -100,37 +101,37 @@ class BaseAST(object):
     
 def createIntNode(value):
   intConstDict = {}
-  intConstDict['typeName']   = 'uint'
-  intConstDict['params'] = []
+  intConstDict['typeName']   = 'sint'
+  intConstDict['params'] = determineBits(value)
   intConstDict['value']  = value
-  intConstDict['array']  = [[0,0]]
   intConstDict['name']   = 'const'
   intConstDict['const']  = True
   intConstDict['port']   = None
   intConstDict['decl']   = True
   
-  return BaseAST('INT',[],intConstDict)
+  return BaseAST('CONST',[],intConstDict)
+  
+def createBitArray(value):
+  bitDictArray = []
+  for val in value:
+    bitDict = {}
+    bitDict['typeName'] = 'bit'
+    bitDict['params']   = []
+    bitDict['value']    = val
+    bitDict['name']     = 'const'
+    bitDict['const']    = True
+    bitDict['port']     = None
+    bitDict['decl']     = True
     
-# Global dictionary to create const with zero value
-zeroConstDict = {}
-zeroConstDict['typeName']   = 'uint'
-zeroConstDict['params'] = [createIntNode(0)]
-zeroConstDict['value']  = 0
-zeroConstDict['array']  = [[0,0]]
-zeroConstDict['name']   = 'const'
-zeroConstDict['const']  = True
-zeroConstDict['port']   = None
-zeroConstDict['decl']   = True
-
-oneConstDict = {}
-oneConstDict['typeName']   = 'uint'
-oneConstDict['params'] = [createIntNode(1)]
-oneConstDict['value']  = 1
-oneConstDict['array']  = [[0,0]]
-oneConstDict['name']   = 'const'
-oneConstDict['const']  = True
-oneConstDict['port']   = None
-oneConstDict['decl']   = True
+    bitDictArray.append(BaseAST('CONST',[],bitDict))
+    
+  if len(bitDictArray) == 1:
+    return bitDictArray[0]
+  else:
+    aggDict = {'nodes': bitDictArray}
+    return BaseAST('ARRAY',[],aggDict)
+    
+defaultArray = [[createIntNode(0), createIntNode(0)]]
 
 class SyntaxParser(object):
   def __init__(self, lexer):
@@ -356,7 +357,7 @@ class SyntaxParser(object):
     if (self.check('LBRACK')):
       varType['array'] = self.loadIndexList(True)
     else:
-      varType['array'] = [[0,0]]
+      varType['array'] = deepcopy(defaultArray)
     
     # Name
     varType['name'] = self.getValue()
@@ -418,7 +419,7 @@ class SyntaxParser(object):
     if (self.check('LBRACK')):
       varType['array'] = self.loadIndexList(True)
     else:
-      varType['array'] = [[0,0]]
+      varType['array'] = deepcopy(defaultArray)
       
     #Master interface direction
     varType['port'] = self.getValue()
@@ -726,8 +727,7 @@ class SyntaxParser(object):
     if (self.check('LBRACK')):
       varType['array'] = self.loadIndexList(True)
     else:
-      baseInd = BaseAST('CONST', [], zeroConstDict)
-      varType['array']  = [[baseInd,baseInd]]
+      varType['array'] = deepcopy(defaultArray)
       
     # Generic or not
     if (declType is 'gen'):
@@ -1177,7 +1177,7 @@ class SyntaxParser(object):
     if (operType != 'POST_OPER'):
       asgnDict['rightExpr'] = self.loadComplexExpr(False)
     else:
-      baseInd = BaseAST('CONST', [], oneConstDict)
+      baseInd = createIntNode(1)
       asgnDict['rightExpr'] = baseInd
       
     comment = self.skip()
@@ -1586,44 +1586,43 @@ class SyntaxParser(object):
     # Convert value
     if (typeStr == 'INTEGER'):
       value = int(valStr)
-      numDict['typeName'] = 'uint'
-      numDict['params'] = [createIntNode(determineBits(value))]
+      numDict['typeName'] = 'sint'
+      numDict['params'] = [determineBits(value)]
       numDict['value']  = value
-      numDict['array']  = [[0,0]]
     elif (typeStr == 'FLOAT'):
       numDict['typeName']  = 'float'
       numDict['params'] = []
       numDict['value'] = float(valStr)
-      numDict['array'] = [[0,0]]
     elif (typeStr == 'BIT_INIT_BIN'):
-      numDict['typeName'] = 'bit'
-      numDict['params'] = []
+      #numDict['typeName'] = 'bit'
+      #numDict['params'] = []
       binData = re.match('[b]?\'([01ZXLH-]+)\'',valStr).group(1)
-      numDict['value'] = list(binData)
-      numDict['array'] = [[len(binData)-1,0]]
+      self.verify(constList)
+      return createBitArray(binData)
+      #numDict['value'] = list(binData)
     elif (typeStr == 'BIT_INIT_HEX'):
-      numDict['typeName'] = 'bit'
-      numDict['params'] = []
+      #numDict['typeName'] = 'bit'
+      #numDict['params'] = []
       hexData = re.match('x\'([0-9a-fA-F]+)\'',valStr).group(1)
       binData = bin(int(hexData, 16))[2:].zfill(4*len(hexData))
-      numDict['value'] = list(binData)
-      numDict['array'] = [[len(binData)-1,0]]
+      self.verify(constList)
+      return createBitArray(binData)
+      #numDict['value'] = list(binData)
     elif (typeStr == 'STRING'):
       numDict['typeName']  = 'str'
       numDict['params'] = []
       numDict['value'] = valStr.replace('"','')
-      numDict['array'] = [[0,0]]
     elif (typeStr == 'BOOLEAN'):
       numDict['typeName']  = 'bool'
       numDict['params'] = []
       numDict['value'] = valStr
-      numDict['array'] = [[0,0]]
     
     numDict['name']  = 'const'
     numDict['const'] = True
     numDict['port']  = None
     numDict['decl']  = isDecl
     self.verify(constList)
+    
     return BaseAST('CONST', [], numDict)
     
   def loadVar(self, isDecl):

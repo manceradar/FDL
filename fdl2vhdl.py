@@ -17,9 +17,9 @@ def main():
   
   #FDL source files
   fdl_filename_list = ['builtin/std_logic_1164.fdl',
-                       'examples/expr.fdl',
-                       'examples/VariableDelay.fdl', 
-                       'examples/TopLevel.fdl']
+                       'examples/expr.fdl',]
+                       #'examples/VariableDelay.fdl',]
+                       #'examples/TopLevel.fdl']
                        
   # Build AST
   astList = []

@@ -1,5 +1,5 @@
 from copy import deepcopy
-from SymbolTable import SymbolTable
+from .SymbolTable import SymbolTable
 import numpy as np
 
 def flip(m,axis):
@@ -295,7 +295,7 @@ class FuncSymbol (BaseSymbol, SymbolTable, Params):
     # Define type from dict
     BaseSymbol.__init__(self,configDict['name'],'function')
     SymbolTable.__init__(self, configDict['name'], scopeLevel, encScope)
-    self.synth = configDict['synth']
+    self.synth = False
     self.returnTypeName = configDict['returnTypeName']
     self.returnTypeDim  = configDict['returnTypeDim']
     
@@ -354,7 +354,10 @@ class SignalSymbol (BaseSymbol):
   def __initClass__(self, node):
     BaseSymbol.__init__(self, node.name, 'signal', node)
     self.typeName    = node.typeName
-    self.typeDim     = determineDim(node.array)
+    if (node.base is 'CONST'):
+      self.typeDim   = 0
+    else:
+      self.typeDim     = determineDim(node.array)
     self.const       = node.const
     self.portType    = node.port
     
@@ -410,6 +413,12 @@ class SignalSymbol (BaseSymbol):
     self.initAsgnd     = np.full(arrayDim, False, dtype=bool)
     self.valAsgnd      = np.full(arrayDim, False, dtype=bool)
     
+  def assignConstValue(self, value):
+    self.initValue[[0,0]] = value
+    self.initAsgnd[[0,0]] = True
+    self.value[[0,0]] = value
+    self.valAsgnd[[0,0]] = True
+    
   def assignInitValue(self, node, index=None):
     # Verify type
     if (node.typeName != self.typeName):
@@ -422,8 +431,8 @@ class SignalSymbol (BaseSymbol):
     if (index is None):
       index = deepcopy(self.array)
       
-    # Get indexing in right frame
-    index = [list(arraySize(x)[0:2]) for x in index]
+      # Get indexing in right frame
+      index = [list(arraySize(x)[0:2]) for x in index]
     
     # Check index
     if (not self.correctIndicies(index)):
@@ -496,9 +505,9 @@ class SignalSymbol (BaseSymbol):
     
 
 class LibrarySymbol (BaseSymbol, SymbolTable):
-  def __init__(self, node, scopeLevel, encScope):
+  def __init__(self, node, encScope):
     BaseSymbol.__init__(self, node.name, 'library', node)
-    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
+    SymbolTable.__init__(self, node.name, encScope.scopeLevel+1, encScope)
     self.nodes = []
     
 class ModuleSymbol (BaseSymbol, SymbolTable):
