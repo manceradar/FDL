@@ -346,7 +346,6 @@ class SignalSymbol (BaseSymbol):
     self.dimIndOffset  = None
     
     # Values
-    self.initValue     = np.empty(1, dtype='O')
     self.value         = np.empty(1, dtype='O')
     self.initAsgnd     = np.full(1, False, dtype=bool)
     self.valAsgnd      = np.full(1, False, dtype=bool)
@@ -408,31 +407,28 @@ class SignalSymbol (BaseSymbol):
     arrayDim = tuple([arraySize(ind)[2] for ind in array])
     
     self.dimIndOffset  = [arraySize(ind)[0] for ind in array]
-    self.initValue     = np.empty(arrayDim, dtype='O')
+    
     self.value         = np.empty(arrayDim, dtype='O')
     self.initAsgnd     = np.full(arrayDim, False, dtype=bool)
     self.valAsgnd      = np.full(arrayDim, False, dtype=bool)
     
   def assignConstValue(self, value):
-    self.initValue[[0,0]] = value
-    self.initAsgnd[[0,0]] = True
     self.value[[0,0]] = value
+    self.initAsgnd[[0,0]] = True
     self.valAsgnd[[0,0]] = True
     
   def assignInitValue(self, node, index=None):
     # Verify type
     if (node.typeName != self.typeName):
       raise Exception('Init Variable Type Mismatch')
-      
-    # Verify constant
-    if (node.const != True):
-      raise Exception('Init Variable Not Constant')
     
     if (index is None):
       index = deepcopy(self.array)
       
       # Get indexing in right frame
+      print(index)
       index = [list(arraySize(x)[0:2]) for x in index]
+      print(index)
     
     # Check index
     if (not self.correctIndicies(index)):
@@ -442,9 +438,12 @@ class SignalSymbol (BaseSymbol):
     arrayInd = []
     for dim, x in enumerate(index):
       arrayInd.append(np.array(range(x[0],x[1]+1)) - self.dimIndOffset[dim])
+      print(arrayInd)
       # Flip indices if original declaration is
       if self.flipInd[dim]:
         arrayInd[-1] = self.array[dim][1] - self.dimIndOffset[dim] - arrayInd[-1]
+        
+      print(arrayInd)
       
     # Check if these values were already assigned
     alrdyAsgnd = np.any(self.initAsgnd[arrayInd])
@@ -452,8 +451,12 @@ class SignalSymbol (BaseSymbol):
       raise Exception('Variable Index assigned')
       
     # Assign value
-    self.initValue[arrayInd] = node.value
+    self.value[arrayInd] = node.value
     self.initAsgnd[arrayInd] = True
+    
+    if self.const:
+      self.valAsgnd[arrayInd] = True
+      
         
   def assignValue(self, node, index=None):
     # Verify type
@@ -479,13 +482,11 @@ class SignalSymbol (BaseSymbol):
       raise Exception('Variable index already assigned')
       
     # Assign value
-    self.value[arrayInd]    = node.value
     self.valAsgnd[arrayInd] = True
     
     # Flip indices if they are defined reversed
     for dim,dimInd in enumerate(self.array):
       if (dimInd[0] > dimInd[1]):
-        self.value    = flip(self.value,dim)
         self.valAsgnd = flip(self.valAsgnd,dim)
     
   def correctIndicies(self,refInd):

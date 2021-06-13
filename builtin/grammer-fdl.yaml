@@ -11,14 +11,14 @@ tokens:
     type:    BIT_INIT_BIN
   - regex:   '\"([^"]|\\\")*\"'
     type:    STRING
+  - regex:   '(True|False)'
+    type:    BOOLEAN
   - regex:   '[a-zA-Z][a-zA-Z0-9_]*'
     type:    ID
   - regex:   '[0-9]+\.[0-9]*'
     type:    FLOAT
   - regex:   '[0-9]+'
     type:    INTEGER
-  - regex:   '(True|False)'
-    type:    BOOLEAN
   - regex:   '\('
     type:    LPAREN
   - regex:   '\)'
@@ -130,20 +130,6 @@ keywords:
     type:    WARNING
   - regex:   error
     type:    ERROR
-  - regex:   delay
-    type:    DELAY
-  - regex:   until
-    type:    UNTIL
-  - regex:   'on'
-    type:    'ON'
-  - regex:   open
-    type:    OPEN
-  - regex:   task
-    type:    TASK
-  - regex:   single
-    type:    SINGLE
-  - regex:   repeat
-    type:    REPEAT
     
     
 #----------------------------------

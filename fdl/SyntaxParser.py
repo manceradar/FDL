@@ -1355,7 +1355,7 @@ class SyntaxParser(object):
     return BaseAST(base, comment, reportDict)
     
   # isDecl specifies if this is a declaration call or assignment call
-  # this variable will be passed to syntax checker to verify
+  # this variable will be passed to semantic analyzer to verify
   # array sizes are constant values. assignment array sizes can be 
   # constant or signal
   def loadComplexExpr(self,isDecl):

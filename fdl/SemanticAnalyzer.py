@@ -151,7 +151,9 @@ class SemanticAnalyzer (NodeVisitor):
     if (node.value != None):
       # No interface port can have value
       if (node.port is None):
+        # Visit node
         initVar = self.visit(node.value)
+        
         varDecl.assignInitValue(initVar)
       else:
         print('Ports can not have init value')
@@ -193,11 +195,13 @@ class SemanticAnalyzer (NodeVisitor):
   def visit_array(self, node):
     # load elements
     elements = []
+    dtypes = []
     for elem in node.nodes:
       elemSym = self.visit(elem)
       elements.append(elemSym)
+      dtypes.append(elemSym.type)
       
-    return elements
+    return (elements, dtypes)
       
   def visit_expr(self, node):
     # First visit node to verify it

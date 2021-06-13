@@ -303,8 +303,9 @@ class SymbolTable (object):
     nameList = ['Name(Ref,Imp)']
     portList = ['Port/Gen(C)']
     typeList = ['Type']
-    val1List = ['Init. Value']
-    val2List = ['Asgn. Value']
+    val1List = ['Value']
+    val2List = ['Used']
+    val3List = ['Init.']
     
     # List variables
     found = False
@@ -344,22 +345,29 @@ class SymbolTable (object):
         
         typeStr = typeStr
         
-        val1Str = str(symbol.initValue).replace('\'','')
+        val1Str = str(symbol.value).replace('\'','')
         val1Str = val1Str.replace('None','N')
         val1Str = val1Str.replace('\n',',')
         
-        val2Str = str(symbol.value).replace('\'','')
-        val2Str = val2Str.replace('None','N')
-        val2Str = val2Str.replace('\n',',')
+        val2Str = str(symbol.valAsgnd)
+        val2Str = val2Str.replace('True','T')
+        val2Str = val2Str.replace('False','F')
+        val2Str = val2Str.replace(' ','')
+        
+        val3Str = str(symbol.initAsgnd)
+        val3Str = val3Str.replace('True','T')
+        val3Str = val3Str.replace('False','F')
+        val3Str = val3Str.replace(' ','')
         
         nameList.append(nameStr)
         portList.append(portStr)
         typeList.append(typeStr)
         val1List.append(val1Str)
         val2List.append(val2Str)
+        val3List.append(val3Str)
         
     tableLines = self.formatTable(header, width, nameList, portList, 
-                                  typeList, val1List, val2List)
+                                  typeList, val1List, val2List,val3List)
         
     return (found, tableLines)
     

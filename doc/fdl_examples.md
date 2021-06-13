@@ -434,7 +434,7 @@ entity VariableDelay is
 end Delay;
 
 architecture behavior of Delay is
-  signal reg : std_logic_vector(MAXDELAY-1 downto 0) :=  (others=>'0');
+  signal reg : std_logic_vector(MAXDELAY-1 downto 0) :=  '00000000';
 begin
   
   process(CLK)

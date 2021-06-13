@@ -2,12 +2,10 @@
 
 ## Syntax Parser
 - [x] Add assert, log, warning, error statements
-- [ ] Add delay, file statements to testbench
 - [ ] Add view to interfaces
 - [ ] Module instatiation
 - [ ] If define in module ports
 - [ ] Add type as parameter input
-- [ ] Test bench framework
 - [ ] Alias?
 - [ ] Add rename 
 - [ ] Finish replicate operator
@@ -20,7 +18,6 @@
 ## Library 
 - [ ] Translate all base VHDL functions
 - [ ] Create FDL extension library
-- [ ] Create simulation extension library
 
 ## Testbench framework
 - [ ] Add testbench with generic, declare, and logic blocks
