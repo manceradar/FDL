@@ -1,6 +1,7 @@
 # Overall Language Construct
 
-This document covers how the FPGA Description Language (FDL, pronounced "Fiddle") language is constructed and how the compiler works.
+This document covers how the FPGA Description Language (FDL, pronounced "Fiddle") language construction 
+and how the compiler works.
 
 ## Language structure
 
@@ -22,22 +23,28 @@ are derived from the "bit" data type.
 
 | Data Type | Allowed Values | Example Variable Declaration |
 | --------- | -------------- | ---------------------------- |
-| bit       | '0','1','Z','X','L','H','-' | `bit foo = '1'` |
-| bool | True, False | `bool foo = False` |
-| sint(uint numBits = 32) | integer | `uint(8) foo = 100` |
-| uint(uint numBits = 32) | integer | `sint foo = -100` |
+| bit       | 0,1,Z,X,L,H,- | `bit foo = '1'` |
+| bool | True, False | `bool bar = False` |
+| uint(sint numBits = 32) | integer | `uint(8) foo = 100` |
+| sint(sint numBits = 32) | integer | `sint bar = -100` |
+| ufix(sint wholeBits, sint fixedBits) | integer, float | `uint(8,8) foo = 8` |
+| sfix(sint wholeBits, sint fixedBits) | integer, float | `sint(0,15) bar = -0.25` |
 | float | float | `float foo = 3.14` |
-| str | string | `str foo = "Data ready!\n"` |
-| enum | string | `enum foo = {stReady, stRead, stWrite, stWait}` |
+| str | string | `str bar = "Data ready!\n"` |
+| enum | string | `enum baz = {stReady, stRead, stWrite, stWait}` |
 | time | float, integer | `time foo = 4 ns` |
-| freq | float, integer | `freq foo = 100 MHz` |
+| freq | float, integer | `freq bar = 100 MHz` |
+
+Unlike VHDL, FDL data types are classes. The base data types contain functions that
+define all he base operations, including FDL extended functions. 
 
 FDL also extends the language for allow for data consolidation using records/structs
 and interfaces. Most of the tools don't support these features, but FDL expands the
-variables behind the scenes such that the tools are happy.
+variables behind the scenes such that the tools are happy. Additionally, these types
+considered as classes. 
 
 The structure data type allows for data consolidation when all the ports are going
-in one direction.
+in one direction. Additionally, functions can be defined to extend functionality.
 
 ```
 struct complex(uint numBits):
@@ -46,8 +53,18 @@ struct complex(uint numBits):
   bit           valid
 ```
 
-There interface data type is very similar to the structure data type, but allows the 
-user to define the direction of the underlying data with the view feature. TODO: How does view work?
+The interface data type is very similar to the structure data type, but allows the 
+user to define the direction of the underlying data with depending on the driver type;
+producer or consumer. Furthermore, interfaces can have processes defined under them to
+run code. This makes them similar to modules, but class is passed around as ports and 
+their functions follow them. 
+
+```
+interface (type T):
+  T     producer real
+  bit   producer valid
+  bit   consumer ready
+```
 
 ### Data Arrays
 
@@ -106,12 +123,12 @@ file. The tokens are found through regular expressions to the end of the line. E
 token is found in order for proper parsing. The exception comes in the ID token, 
 where before it's assign an ID it is checked to be a keyword. FDL has the following keywords:
 
-| FDL Keywords ||||
-|--------------||||
+| FDL Keywords |FDL Keywords|FDL Keywords|FDL Keywords|
+|---|---|---|---|
 | import | library | function | enum |
 | module | blackbox | generics | ports |
-| in | out | inout | master |
-| slave | arch | declare | logic |
+| in | out | inout | producer |
+| consumer | arch | declare | logic |
 | rename | for | case | struct |
 | interface | const | others | pro |
 | spro | apro | if | elif |
@@ -119,11 +136,11 @@ where before it's assign an ID it is checked to be a keyword. FDL has the follow
 | warning | error | delay | until |
 | on | task | single | repeat |
 | while | routine | open | not |
-| attr | next | exit |  |
+| attr | next | exit | type |
 | and | or | nand | nor |
 | xor | xnor | sll | srl |
 | sla | sra | ror | rol |
-| mod | rem |||
+| mod | rem | | |
 
 ### Syntax Parsing
 
