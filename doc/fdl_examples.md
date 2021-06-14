@@ -1,39 +1,45 @@
-#--------------------------------
-# spro does synchronous process
-#   Clock edge is rising by default
-#   Reset level is high ('1') by default
-# spro(bit clk):
-# spro(bit clk, bit rst):
-# spro(bit clk, bit rst, str clkEdge, str rstLvl):
-#--------------------------------
+# FPGA Description Language Syntax
 
-#------
-# FDL
-#------
+# Processing Logic
+
+## Synchronous Processes
+
+spro does synchronous process  
+Clock edge is rising by default  
+Reset level is high ('1') by default  
+```
+ spro(bit clk):
+ spro(bit clk, bit rst):
+ spro(bit clk, bit rst, str clkEdge = "rising", str rstLvl = "high):
+```
+
+###FDL
+
+```
 spro(clk):
   b = a
-  
-#------
-# VHDL
-#------
-  
+```
+
+###VHDL
+
+```vhdl
 process(clk)
 begin
   if rising_edge(clk) then
     b <= a;
   end if;
 end process;
+```
 
-#------
-# FDL
-#------
+###FDL
+```
 bit b = '0'
 spro(clk,rst):
   b = a
-  
-#------
-# VHDL
-#------
+```
+
+###VHDL
+```vhdl
 process(clk)
 begin
   if rising_edge(clk) then
@@ -44,17 +50,17 @@ begin
     end if;
   end if;
 end process;
+```
 
-#------
-# FDL
-#------
+###FDL
+```
 bit b = '0' 
 spro(clk,rst,"falling","low"):
   b = a
-  
-#------
-# VHDL
-#------
+```  
+
+###VHDL
+```vhdl
 process(clk)
 begin
   if falling_edge(clk) then
@@ -65,25 +71,26 @@ begin
     end if;
   end if;
 end process;
+```
 
-#--------------------------------
-# apro does asynchronous process
-#   Clock edge is rising by default
-#   Reset level is high ('1') by default
-# apro(bit clk, bit rst):
-# apro(bit clk, bit rst, str clkEdge, str rstLvl):
-#--------------------------------
+## Asynchronous Process
+apro does asynchronous process    
+Clock edge is rising by default    
+Reset level is high ('1') by default      
+```
+apro(bit clk, bit rst):
+apro(bit clk, bit rst, str clkEdge = "rising", str rstLvl = "high):
+```
 
-#------
-# FDL
-#------
+###FDL
+```
 bit b = '0'
 apro(clk,rst):
   b = a
-  
-#------
-# VHDL
-#------
+```
+
+###VHDL
+```vhdl
 process(clk)
 begin
   if (rst='1') then
@@ -92,17 +99,17 @@ begin
     b <= a;
   end if;
 end process;
+```
 
-#------
-# FDL
-#------
+###FDL
+```
 bit b = '0' 
 apro(clk,rst,"falling","low"):
   b = a
-  
-#------
-# VHDL
-#------
+```
+
+###VHDL
+```vhdl
 process(clk)
 begin
   if (rst='0') then
@@ -111,24 +118,24 @@ begin
     b <= a;
   end if;
 end process;
+```
 
-#--------------------------------
-# pro is a traditional process
-#--------------------------------
 
-#------
-# FDL
-#------
+## Traditional process 
+pro is a traditional process
+
+###FDL
+```
 bit b = '0' 
 pro:
   if (rst='0'):
     b = '0'
-  elif rising(clk):
+  elif rising_edge(clk):
     b = a
-  
-#------
-# VHDL
-#------
+```
+
+###VHDL
+```vhdl
 process(clk)
 begin
   if (rst='0') then
@@ -137,39 +144,37 @@ begin
     b <= a;
   end if;
 end process;
+```
 
-#--------------------------------
-# sequential when,else in vhdl
-#--------------------------------
-# notice its just a normal if,elif,else statement
-# this is sequential logic (not in process)
+# Sequential Logic
 
-#------
-# FDL
-#------
+## sequential when,else in vhdl
+
+notice its just a normal if,elif,else statement  
+this is sequential logic (not in process)  
+
+###FDL
+```
 if (a=='1'):
   z = '0'
 elif (b=='0'):
   z = '1'
 else:
   z = 'Z'
-  
-#------
-# VHDL
-#------
-  
+```
+###VHDL
+```vhdl
 z <= '0' when a = '1' else
      '1' when b = '0' else
      'Z';
-     
-#--------------------------------
-# if generate in vhdl
-#--------------------------------
-# notice its just a normal if,elif,else statement
+```
 
-#------
-# FDL
-#------
+
+## if generate in vhdl
+notice its just a normal if,elif,else statement
+
+###FDL
+```
 if (a=='1'):
   DelayInst Delay(behaviour):
     ports:
@@ -182,11 +187,10 @@ else:
       CLK = CLK
       A   = sig1
       B   = sig3
-  
-#------
-# VHDL
-#------
-  
+```
+
+###VHDL
+```vhdl
 ifgenlabel0 : if (a='1') generate
   DelayInst : Delay(behaviour)
     port map(
@@ -202,15 +206,13 @@ else
       B   => sig3
     );
 end generate;
+```
 
-#--------------------------------
-# if,elsif,else in vhdl
-#--------------------------------
 
-#------
-# FDL
-#------
+## if,elsif,else in vhdl
 
+###FDL
+```
 spro(clk):
   if (a=='1):
     z = '0'
@@ -218,11 +220,10 @@ spro(clk):
     z = '1'
   else:
     z = 'Z'
-  
-#------
-# VHDL
-#------
-  
+```  
+
+###VHDL
+```vhdl
 process(clk)
 begin
   if rising_edge(clk) then
@@ -235,54 +236,46 @@ begin
     end if;
   end if;
 end process;
+```
 
-#--------------------------------
-# sequential case in vhdl
-#--------------------------------
-# notice its just a normal case statement
-# this is sequential logic (not in process)
+## sequential case in vhdl
+notice its just a normal case statement  
+this is sequential logic (not in process)  
 
-#------
-# FDL
-#------
-
+###FDL
+```
 case(a):
   '00': b = 1
   '01': b = 2
   '11': b = 3
   '10': b = 4
   else: b = 0
-  
-#------
-# VHDL
-#------
+```  
 
+###VHDL
+```vhdl
 b <= 1 when a = '00' else
      2 when a = '01' else
      3 when a = '11' else
      4 when a = '10' else
      0;
-     
-#--------------------------------
-# case in vhdl
-#--------------------------------
-# notice its just a normal case statement
+```
 
-#------
-# FDL
-#------
+## case in vhdl
+notice its just a normal case statement
 
+###FDL
+```
 spro(clk):
   case(a):
     '00': b = 1
     '01': b = 2
     '11': b = 3
     '10': b = 4
-  
-#------
-# VHDL
-#------
+```
 
+###VHDL
+```vhdl
 process(clk)
 begin
   if rising_edge(clk) then
@@ -294,15 +287,12 @@ begin
     end case;
   end if;
 end process;
+```
 
-#--------------------------------
-# state machine in vhdl
-#--------------------------------
+## state machine in vhdl
 
-#------
-# FDL
-#------
-
+###FDL
+```
 spro(clk):
   case(a):
     '00':
@@ -317,11 +307,10 @@ spro(clk):
     '10': 
       b = 4
       a = '00'
-  
-#------
-# VHDL
-#------
+```
 
+###VHDL
+```vhdl
 process(clk)
 begin
   if rising_edge(clk) then
@@ -341,15 +330,106 @@ begin
      end case;
   end if;
 end process;
+```
 
-#--------------------------------
-# entity definition in vhdl
-#--------------------------------
+## for loop in vhdl
 
-#------
-# FDL
-#------
+###FDL
+```
+sint(8)[9:0] reg = [others=0]
 
+spro(clk,rst):
+  for ind in range(0,9):
+    reg[ind] = ind+reg[ind]
+```    
+###VHDL
+```vhdl
+signal reg : signed_vec(9 downto 0)(7 downto 0) := (others=>(others=>to_signed(0,8)));
+
+process(clk,rst)
+begin
+  if rising_edge(clk) then
+    if (rst='1') then
+      reg <= (others=>(others=>'0'));
+    else
+      for ind in 0 to 9 loop
+        reg(ind) <= to_signed(ind,8) + reg(ind);
+      end loop;
+    end if;
+  end if;
+end process;
+```
+
+## for generate in vhdl
+
+###FDL
+```
+for ind in range(0,3):
+  DelayInst Delay(behaviour):
+    ports:
+      CLK = CLK
+      A   = sig1(ind)
+      B   = sig2(ind)
+```  
+
+###VHDL
+```vhdl
+for ind in 0 to 3 generate
+  DelayInst : Delay(behaviour)
+    port map(
+      CLK => CLK,
+      A   => sig1,
+      B   => sig2
+    );
+end generate;
+```
+
+## state machine in vhdl
+
+###FDL
+```
+enum arb_state = [zero,one,two,three]
+arb_state curState = 0
+bit[3:0] output = 4{'0'}
+
+spro(clk,rst):
+  case (curState):
+    zero:   output = '0001'
+    one:    output = '0010'
+    two:    output = '0100'
+    three:  output = '1000'
+    else:   output = '0000'
+```  
+###VHDL
+```vhdl
+type arb_state is (sm_zero, sm_one, sm_two, sm_three);
+signal curState : arb_state := sm_zero;
+
+process(clk,rst)
+begin
+  if rising_edge(clk) then
+    if (rst='1') then
+      curState <= sm_zero;
+      output   <= (others=>'0');
+    else
+      case (curState) is
+        when sm_zero  => output <= '0001';
+        when sm_one   => output <= '0010';
+        when sm_two   => output <= '0100';
+        when sm_three => output <= '1000';
+        when others   => output <= '0000';
+      end case;
+    end if;
+  end if;
+end process;
+```
+
+
+# Modules
+## module definition in vhdl
+
+###FDL
+```
 module Delay:
   ports:
     bit in  clk
@@ -360,10 +440,10 @@ arch behaviour:
   logic:
     spro(clk):
       b = a
+```
 
-#------
-# VHDL
-#------
+###VHDL
+```vhdl
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 
@@ -387,15 +467,12 @@ begin
   end process;
   
 end behaviour;
+```
 
-#--------------------------------
-# entity definition with generics in vhdl
-#--------------------------------
+## entity definition with generics in vhdl
 
-#------
-# FDL
-#------
-
+###FDL
+```
 module VariableDelay:
   generics:
     sint(8) maxDelay = 8
@@ -406,17 +483,16 @@ module VariableDelay:
     bit     out b
     
 arch behaviour:
-  signals:
+  declare:
     bit[maxDelay-1:0] reg = [maxDelay{'0'}]
   logic:
     spro(clk):
       reg = reg[maxDelay-2:0] & a
       b = reg[sel]
+```
 
-#------
-# VHDL
-#------
-
+###VHDL
+```vhdl
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -446,25 +522,20 @@ begin
   end process;
   
 end behavior;
+```
 
-#--------------------------------
-# entity inst. in vhdl
-#--------------------------------
+## entity instantiation in vhdl
 
-#------
-# FDL
-#------
-
+###FDL
+```
 DelayInst Delay(behaviour):
   ports:
     CLK = CLK
     A   = sig1
     B   = sig2
-
-#------
-# VHDL
-#------
-
+```
+###VHDL
+```vhdl
   component Delay is
     port(
       CLK : in  std_logic;
@@ -481,140 +552,28 @@ begin
       A   => sig1,
       B   => sig2
     );
+```
 
-#--------------------------------
-# for loop in vhdl
-#--------------------------------
+## initialize in vhdl
 
-#------
-# FDL
-#------
-sint(8)[9:0] reg = [others=0]
-
-spro(clk,rst):
-  for ind in range(0,9):
-    reg[ind] = ind+reg[ind]
-    
-#------
-# VHDL
-#------
-
-signal reg : signed_vec(9 downto 0)(7 downto 0) := (others=>(others=>to_signed(0,8)));
-
-process(clk,rst)
-begin
-  if rising_edge(clk) then
-    if (rst='1') then
-      reg <= (others=>(others=>'0'));
-    else
-      for ind in 0 to 9 loop
-        reg(ind) <= to_signed(ind,8) + reg(ind);
-      end loop;
-    end if;
-  end if;
-end process;
-
-#--------------------------------
-# for generate in vhdl
-#--------------------------------
-
-#------
-# FDL
-#------
-
-for ind in range(0,3):
-  DelayInst Delay(behaviour):
-    ports:
-      CLK = CLK
-      A   = sig1(ind)
-      B   = sig2(ind)
-  
-#------
-# VHDL
-#------
-
-for ind in 0 to 3 generate
-  DelayInst : Delay(behaviour)
-    port map(
-      CLK => CLK,
-      A   => sig1,
-      B   => sig2
-    );
-end generate;
-
-#--------------------------------
-# state machine in vhdl
-#--------------------------------
-
-#------
-# FDL
-#------
-
-state arb_state = [zero,1,two,3]
-arb_state curState = 0
-bit[3:0] output = 4{'0'}
-
-spro(clk,rst):
-  case (curState):
-    zero: output = '0001'
-    1:    output = '0010'
-    two:  output = '0100'
-    3:    output = '1000'
-    else: output = '0000'
-  
-#------
-# VHDL
-#------
-
-type arb_state is (sm_zero, sm_1, sm_two, sm_3);
-signal curState : arb_state := sm_zero;
-
-process(clk,rst)
-begin
-  if rising_edge(clk) then
-    if (rst='1') then
-      curState <= sm_zero;
-      output   <= (others=>'0');
-    else
-      case (curState) is
-        when sm_zero => output <= '0001';
-        when sm_1    => output <= '0010';
-        when sm_two  => output <= '0100';
-        when sm_3    => output <= '1000';
-        when others  => output <= '0000';
-      end case;
-    end if;
-  end if;
-end process;
-
-#--------------------------------
-# initialize in vhdl
-#--------------------------------
-
-#------
-# FDL
-#------
-
+###FDL
+```
 const bit zero = '0'
 bit[7:0] reg1 = [7:1='0', others='1']
 bit[0:7][15:0] reg2 = [others=[others='0']]
+```
 
-#------
-# VHDL
-#------
-
+###VHDL
+```vhdl
 constant zero : std_logic := '1';
 signal reg1 : std_logic_vector(7 downto 0) := (7 downto 1 => '0', others =>  '1');
 signal reg2 : std_logic_array(0 to 7)(15 downto 0) := (others=>(others=>'0'));
+```
 
-#--------------------------------
-# Structure declaration
-#--------------------------------
+## Structure declaration
 
-#------
-# FDL
-#------
-
+###FDL
+```
 library complexLib:
   struct complex(uint width):
     sint(width) real
@@ -639,11 +598,9 @@ arch behavior:
       tmp.dval = inData.dval
       
     outData = tmp
-
-#------
-# VHDL
-#------
-
+```
+###VHDL
+```vhdl
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -683,18 +640,15 @@ begin
   OUTDATA_DVAL <= tmp_dval;
   
 end behavior;
+```
 
-#--------------------------------
-# Function declaration
-#--------------------------------
+## Function declaration
 
-#------
-# FDL
-#------
-
+###FDL
+```
 library tmpLib:
   # Function to compare 2d bit
-  def compare(bit** l, bit** r):
+  function compare(bit** l, bit** r):
     # Check if array sizes match
     if (l.length(0) != r.length(0)):
       raise error('Dimension does not match')
@@ -704,11 +658,10 @@ library tmpLib:
       match &= l[ind] == r[ind]
         
     return match
+```
 
-#------
-# VHDL
-#------
-
+###VHDL
+```vhdl
 package tmpLib is
   type std_logic_2d is array( natural <> ) of std_logic_vector;
   
@@ -734,15 +687,12 @@ package body tmpLib is
     return match;
   end;
 end tmpLib;
+```
 
-#--------------------------------
-# Interface declaration
-#--------------------------------
+## Interface declaration
 
-#------
-# FDL
-#------
-
+###FDL
+```
 library busLib:
   # Notice scope in simpleBus
   uint addr_width = 12
@@ -766,11 +716,10 @@ module SPIMaster:
     bit          in     clk
     simpleBus(w) slave  dataBus
     spi3         master spiBus
+```
 
-#------
-# VHDL
-#------
-
+###VHDL
+```vhdl
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -790,3 +739,4 @@ entity SPIMaster is
     SPI3_CS_N     : out   std_logic
   );
 end SPIMaster;
+```cd

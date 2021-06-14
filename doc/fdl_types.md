@@ -1,5 +1,6 @@
 # Types
 # All types are subtypes of 'bit'
+```
 bit - values ['0','1','Z','X','L','H','-']
 bool - values [True, False]
 sint(integer numBits) - values [integer]
@@ -7,6 +8,7 @@ uint(integer numBits) - values [integer]
 float - values [float]
 str - values [string]
 enum - values [string]
+```
 
 # Subtypes
 struct - collection of types
@@ -16,8 +18,8 @@ interface - collection of types with configurable ports
 in
 out
 inout
-master
-slave
+producer
+consumer
 
 # Type Attributes
 dim()                  # Returns integer of number of dimensions
