@@ -5,7 +5,7 @@ import os
 # Display Pythonista console better
 try:
   import console
-  console.set_font("Menlo-Regular", 12)
+  console.set_font("Menlo-Regular", 10)
 except ImportError:
   pass
 
@@ -16,10 +16,8 @@ def main():
   fo.close()
   
   #FDL source files
-  fdl_filename_list = ['builtin/std_logic_1164.fdl',
-                       'examples/expr.fdl',]
-                       #'examples/VariableDelay.fdl',]
-                       #'examples/TopLevel.fdl']
+  fdl_filename_list = ['examples/VariableDelay.fdl',
+                       'examples/func_task.fdl',]
                        
   # Build AST
   astList = []
@@ -37,12 +35,12 @@ def main():
     astList.append(parser.parse())
   
   # Print AST for debugging
-  for ast in astList[1:]:
+  for ast in astList:
     print('\n'.join(ast.log()))
   
   # Check semantics
-  semAnalyzer = fdl.SemanticAnalyzer(gramConfig, astList[0:1])
-  semAnalyzer.process(astList[1:])
+  #semAnalyzer = fdl.SemanticAnalyzer(gramConfig, astList[0:1])
+  #semAnalyzer.process(astList[1:])
   
 if __name__ == '__main__':
   main()

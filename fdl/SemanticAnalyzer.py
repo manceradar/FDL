@@ -73,9 +73,6 @@ class SemanticAnalyzer (NodeVisitor):
     # Check port declarations
     for port in node.portDeclNodes:
       self.visit(port)
-      
-    # Visit architecture
-    self.visit(node.archNode)
     
   def visit_archblock(self, node):
     # Loop over signal declarations

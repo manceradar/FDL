@@ -5,23 +5,28 @@ library example:
   const sint(16) bar = 8
   sint foobar = foo
   
-  #uint[0:3] bee = {0, 1, 2, 3}
-  #uint[0:1][3:2] boo = {{0, 1}, {7, 8}}
+  uint[0:3] bee = [0, 1, 2, 3]
+  uint[4] bee = [0, 1, 2, 3]
+  uint[0:3] baa = [2=0, 3=1, 1=2, 0=3]
+  uint[0:3] ooh = [others=0]
+  uint[0:3] ahh = [0=4, others=0]
+  uint[0:1][3:2] boo = [[0, 1], [7, 8]]
+  
   
   bit a = '1'
   bit b = '0'
-  #bit[bar:1] c = '00100001'
-  #bit[9:10] d = '01'
+  bit[bar:1] c = '00100001'
+  bit[9:10] d = '01'
   
   bool useThis = True
   bool useThat = False
-  #bool[3:1] boolArr = {True, False, False}
+  bool[3:1] boolArr = [True, False, False]
   
   str stuff = "Hey!\n"
-  #str[1:0] errorMsg = {"Maybe","Yes!"}
+  str[1:0] errorMsg = ["Maybe", "Yes!"]
   
   #time period = 10 ns
   
-  #int beeboo = bee.len(0)
+  int beeboo = bee.len(0)
   
-  #int foobar = 10/5+(foo*bar)
+  int foobar = 10/5+(foo*bar)

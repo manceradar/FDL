@@ -1,0 +1,52 @@
+
+trait Eq<Rhs = Self>:
+  ## Performs the '==' operation
+  func eq(Self self, Rhs rhs) -> bool
+  
+  ## Performs the '!=' operation
+  func ne(Self self, Rhs rhs) -> bool
+
+trait Ord<Self(Eq), Rhs(Eq) = Self>:
+  ## Performs the '>' operation
+  func gt(Self self, Rhs rhs) -> bool
+
+  ## Performs the '<' operation
+  func lt(Self self, Rhs rhs) -> bool
+  
+  ## Performs the '>=' operation
+  func gteq(Self self, Rhs rhs) -> bool
+
+  ## Performs the '<=' operation
+  func lteq(Self self, Rhs rhs) -> bool
+  
+  
+trait Cmp<Self(PartialOrd + Eq)>:
+  ## Performs maximum function
+  func max(Self self, Self rhs) -> Self:
+    declare:
+      # Length is dependent on vector size
+      Self(max(self.len(), rhs.len())) result
+    logic:
+      if (self >= rhs):
+        result = self
+      else:
+        result = rhs
+        
+      return result
+      
+  ## Performs minimum function
+  func min(Self self, Self other) -> Self:
+    declare:
+      # Length is dependent on vector size
+      Self(max(self.len(), rhs.len())) result
+    logic:
+      if (self <= rhs):
+        result = self
+      else:
+        result = rhs
+        
+      return result
+    
+  
+
+  

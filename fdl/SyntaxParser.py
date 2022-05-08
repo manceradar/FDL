@@ -50,6 +50,11 @@ class BaseAST(object):
     attr = []
     node = []
     lines = []
+    
+    if (self.base is 'CONST'):
+      lines.append(self.logConst())
+      return lines
+    
     lines.append('{0}{1}'.format(tabLevel*' ', self.base))
     lines.append('{0}{1}: {2}'.format((tabLevel+2)*' ', 'comments', self.comments))
     tabLevel += 2
@@ -99,9 +104,18 @@ class BaseAST(object):
         
     return (node, attr)
     
+  def logConst(self):
+    # special case for const to reduce lines down
+    base = self.base
+    type = self.typeName
+    typeParam = self.params
+    typeParam = str(typeParam)[1:-1]
+    value = self.value
+    return '{0} {1}({2}) = {3}'.format(base, type, typeParam, value)
+    
 def createIntNode(value):
   intConstDict = {}
-  intConstDict['typeName']   = 'sint'
+  intConstDict['typeName']   = 'uint'
   intConstDict['params'] = determineBits(value)
   intConstDict['value']  = value
   intConstDict['name']   = 'const'
@@ -129,7 +143,7 @@ def createBitArray(value):
     return bitDictArray[0]
   else:
     aggDict = {'nodes': bitDictArray}
-    return BaseAST('ARRAY',[],aggDict)
+    return BaseAST('AGGREGATE',[],aggDict)
     
 defaultArray = [[createIntNode(0), createIntNode(0)]]
 
@@ -143,7 +157,10 @@ class SyntaxParser(object):
     tType = self.getType()
     tVal = self.getValue()
     tScope = self.getScope()
-    print('Unexpected syntax line #{0}: Value {1}'.format(self.token.lineNo, tVal))
+    print('Unexpected syntax: line #{0} (Value: {1})'.format(self.token.lineNo, tVal))
+    print(self.lexer.getTextLine(self.token.lineNo))
+    print(' '*self.token.charNo + '^')
+    print(' '*self.token.charNo + '|')
     if (expectedTokenType is not None):
       print('Expected Token {0} but got {1}, value="{2}"'.format(expectedTokenType, tType, tVal))
       
@@ -168,9 +185,9 @@ class SyntaxParser(object):
     comment = []
     
     #Get next token, skipping over comments
-    while (self.check(['COMMENT', 'EOL'])):
+    while (self.check(['COMMENT', 'COMMENT_HEADER', 'COMMENT_FMT', 'EOL'])):
       #Add comment to list
-      if (self.check('COMMENT')):
+      if (self.check(['COMMENT', 'COMMENT_HEADER', 'COMMENT_FMT'])):
         comment.append(self.getValue())
         
       self.next()
@@ -233,43 +250,155 @@ class SyntaxParser(object):
     
     # Check for modules, libraries, and imports
     nodes = []
-    decl = ['MODULE','LIBRARY','IMPORT']
+    decl = ['IMPORT', 'MODULE', 'ARCH', 'LIBRARY', 'STRUCT', 'INTERFACE', 'TRAIT', 'IMPL', 'FUNC', 'TASK', 'ENUM', 'CONST', 'ATTR']
     while (self.check(decl,True)):
-      if (self.getType() == 'MODULE'):
+      self.checkScope()
+      if (self.getType() == 'IMPORT'):
+        nodes.append(self.loadImportDecl())
+      elif (self.getType() == 'MODULE'):
         nodes.append(self.loadModuleDecl())
+      elif (self.getType() == 'ARCH'):
+        nodes.append(self.loadArchDecl())
       elif (self.getType() == 'LIBRARY'):
         nodes.append(self.loadLibraryDecl())
-      elif (self.getType() == 'IMPORT'):
-        nodes.append(self.loadImportDecl())
+      elif (self.getType() == 'STRUCT'):
+        nodes.append(self.loadStructDecl())
+      elif (self.getType() == 'INTERFACE'):
+        nodes.append(self.loadInterfaceDecl())
+      elif (self.getType() == 'TRAIT'):
+        nodes.append(self.loadTraitDecl())
+      elif (self.getType() == 'IMPL'):
+        nodes.append(self.loadImplDecl())
+      elif (self.getType() == 'FUNC'):
+        nodes.append(self.loadFunctionDecl())
+      elif (self.getType() == 'TASK'):
+        nodes.append(self.loadTaskDecl())
+      elif (self.getType() == 'ENUM'):
+        nodes.append(self.loadEnumDecl())
+      elif (self.getType() == 'CONST'):
+        nodes.append(self.loadVarDecl('const'))
+      elif (self.getType() == 'ATTR'):
+        nodes.append(self.loadAttrDecl())
+      else:
+        self.error()
       
     fileDict['nodes']= nodes
 
     # Create Root Node
     return BaseAST('FILE', comments, fileDict)
     
-  def loadImportDecl(self):
-    # Load line IMPORT ID (DOT ID)?
+  def loadBaseDecl(self):
+    # Loop over all declarations
+    declNodes =[]
+    decl = ['STRUCT', 'INTERFACE', 'TRAIT', 'IMPL', 'FUNC', 'TASK', 'ENUM', 'ATTR', 'ID', 'CONST']
+    while (self.check(decl,True)):
+      # Verify scope
+      self.checkScope()
+      
+      if (self.check('STRUCT')):
+        declNodes.append(self.loadStructDecl())
+      elif (self.check('INTERFACE')):
+        declNodes.append(self.loadInterfaceDecl())
+      elif (self.check('TRAIT')):
+        declNodes.append(self.loadTraitDecl())
+      elif (self.check('IMPL')):
+        declNodes.append(self.loadImplDecl())
+      elif (self.check('FUNC')):
+        declNodes.append(self.loadFunctionDecl())
+      elif (self.check('TASK')):
+        declNodes.append(self.loadTaskDecl())
+      elif (self.check('CONST')):
+        declNodes.append(self.loadVarDecl('const'))
+      elif (self.check('ID')):
+        declNodes.append(self.loadVarDecl('signal'))
+      elif (self.check('ATTR')):
+        declNodes.append(self.loadAttrDecl())
+      elif (self.check('ENUM')):
+        declNodes.append(self.loadEnumDecl())
+        
+    return declNodes
     
-    # Create library dict
-    libDict = dict()
+  def loadDeclareBlock(self):
+    #Load line (DECLARE COLON)
+    
+    # Verify scope
+    self.checkScope()
+    
+    base = self.getType()
+    self.verify('DECLARE',True)
+    self.verify('COLON')
+    comment = self.skip()
+    
+    # Add scope
+    self.addScope()
+    
+    declNodes = self.loadBaseDecl()
+      
+    declDict = {'declNodes': declNodes}
+    
+    #Return to original scope
+    self.rmScope()
+    
+    return BaseAST(base, comment, declDict)
+    
+  def loadLogicBlock(self, logicType):
+    #Load line (LOGIC COLON)
+    
+    # Verify scope
+    self.checkScope()
+    
+    base = self.getType()
+    self.verify('LOGIC',True)
+    self.verify('COLON')
+    comment = self.skip()
+    
+    # Add scope
+    self.addScope()
+    
+    if (logicType is 'arch'):
+      nodes = self.loadArchStatements()
+    elif (logicType is 'func'):
+      nodes = self.loadFuncStatements()
+    elif (logicType is 'task'):
+      nodes = self.loadTaskStatements()
+    
+    # Load logic statements
+    logicDict = {'statements': nodes}
+    
+    #Return to original scope
+    self.rmScope()
+    
+    return BaseAST(base, comment, logicDict)
+    
+  def loadImportDecl(self):
+    # Load line IMPORT ID (DOT ID)* (AS ID)?
+    
+    # Create import dict
+    importDict = dict()
     base = self.getType()
     self.verify('IMPORT')
-    libDict['library'] = self.getValue()
+    importDict['load'] = [self.getValue()]
     self.verify('ID')
       
     # Check if DOT is used to only load one item
-    if (self.check('DOT')):
+    while (self.check('DOT')):
       self.verify('DOT')
-      libDict['load'] = self.getValue()
-      self.verify(['ID','ALL'])
+      importDict['load'].append(self.getValue())
+      self.verify('ID')
+      
+    # Check if rename
+    if (self.check('AS')):
+      self.verify('AS')
+      importDict['name'] = self.getValue()
+      self.verify('ID')
     else:
-      libDict['load'] = 'all'
+      importDict['name'] = importDict['load'][-1]
     
     # Skip
     comment = self.skip()
           
     # No import line, move on
-    return BaseAST(base, comment, libDict)
+    return BaseAST(base, comment, importDict)
     
   def loadLibraryDecl(self):
     # Load line (LIBRARY ID COLON)
@@ -285,19 +414,7 @@ class SyntaxParser(object):
     self.addScope()
     
     #Load definitions
-    nodes = []
-    decl = ['STRUCT','INTERFACE','FUNCTION','ENUM','ID','CONST']
-    while (self.check(decl,True)):
-      if (self.check('STRUCT')):
-        nodes.append(self.loadStruct())
-      elif (self.check('INTERFACE')):
-        nodes.append(self.loadInterface())
-      elif (self.check('FUNCTION')):
-        nodes.append(self.loadFunction())
-      elif (self.check(['ID','CONST'])):
-        nodes.append(self.loadVarDecl('var'))
-      elif (self.check('ENUM')):
-        nodes.append(self.loadEnumDecl())
+    nodes = self.loadBaseDecl()
         
     #Done and decrease scope
     self.rmScope()
@@ -306,13 +423,19 @@ class SyntaxParser(object):
     
     return BaseAST(base, comment, libDict)
     
-  def loadStruct(self):
-    # Load line (STRUCT ID (DECL_ARG_LIST)? COLON)
+  def loadStructDecl(self):
+    # Load line (INTERFACE ID GEN_TYPE_DECL? DECL_ARG_LIST? COLON)
     base = self.getType()
     self.verify('STRUCT')
     structDict = dict()
     structDict['name'] = self.getValue()
     self.verify('ID')
+    
+    # See if structure has generic types
+    if (self.check('LT')):
+      structDict['generics'] = self.loadGenTypeDecl()
+    else:
+      structDict['generics'] = []
     
     #See if configuration parameters exist
     if (self.check('LPAREN')):
@@ -328,8 +451,11 @@ class SyntaxParser(object):
     #Load fields
     nodes = []
     while (self.check('ID',True)):
+      # Verify scope
+      self.checkScope()
+      
       #Load Field
-      nodes.append(self.loadStructField())
+      nodes.append(self.loadVarDecl('struct'))
       
     #Return to original scope
     self.rmScope()
@@ -338,43 +464,19 @@ class SyntaxParser(object):
     structDict['fieldNodes'] = nodes
     return BaseAST(base, comment, structDict)
     
-  def loadStructField(self):
-    # Load line (TYPE (CALL_ARG_LIST)? (INDEX_LIST)? ID)
-    varType = dict()
-    
-    # Define variable
-    varType['type'] = self.getValue()
-    self.verify('ID')
-    
-    # Determine type def
-    if (self.check('LPAREN')):
-      varType['params'] = self.loadCallArgList(True)
-    else:
-      varType['params'] = []
-      
-    # Determine array size
-    varType['decl'] = True
-    if (self.check('LBRACK')):
-      varType['array'] = self.loadIndexList(True)
-    else:
-      varType['array'] = deepcopy(defaultArray)
-    
-    # Name
-    varType['name'] = self.getValue()
-    self.verify('ID')
-    
-    # Skip
-    comment = self.skip()
-    
-    return BaseAST('FIELD', comment, varType)
-    
-  def loadInterface(self):
-    # Load line (INTERFACE ID (DECL_ARG_LIST)? COLON)
+  def loadInterfaceDecl(self):
+    # Load line (INTERFACE ID GEN_TYPE_DECL? DECL_ARG_LIST? COLON)
     base = self.getType()
     self.verify('INTERFACE')
     itfcDict = dict()
     itfcDict['name'] = self.getValue()
     self.verify('ID')
+    
+    # See if interface has generic types
+    if (self.check('LT')):
+      itfcDict['generics'] = self.loadGenTypeDecl()
+    else:
+      itfcDict['generics'] = []
     
     #See if configuration parameters exist
     if (self.check('LPAREN',True)):
@@ -390,8 +492,11 @@ class SyntaxParser(object):
     #Load fields
     nodes = []
     while (self.check('ID',True)):
+      # Verify scope
+      self.checkScope()
+      
       #Load Field
-      nodes.append(self.loadInterfaceField())
+      nodes.append(self.loadVarDecl('interface'))
       
     #Return to original scope
     self.rmScope()
@@ -400,13 +505,172 @@ class SyntaxParser(object):
     itfcDict['fieldNodes'] = nodes
     return BaseAST(base, comment, itfcDict)
     
-  def loadInterfaceField(self):
-    # Load line (TYPE (CALL_ARG_LIST)? (INDEX_LIST)? BASE_INTERFACE ID)
+  def loadTraitDecl(self):
+    # Load line (TRAIT ID GEN_TYPE_DECL? COLON)
+    base = self.getType()
+    self.verify('TRAIT')
+    traitDict = dict()
+    traitDict['name'] = self.getValue()
+    self.verify('ID')
+    
+    # See if trait has generic types
+    if (self.check('LT')):
+      traitDict['generics'] = self.loadGenTypeDecl()
+    else:
+      traitDict['generics'] = []
+      
+    self.verify('COLON')
+    comment = self.skip()
+    
+    self.addScope()
+    
+    #Load fields
+    nodes = self.loadTraitImplStatements()
+      
+    #Return to original scope
+    self.rmScope()
+      
+    #Return field node
+    traitDict['nodes'] = nodes
+    return BaseAST(base, comment, traitDict)
+    
+  def loadImplDecl(self):
+    # There are two types of implementations
+    # TRAIT_NAME = ID (DOT ID)*
+    # STR_INT_NAME = ID (DOT ID)*
+    # INHERENT_IMPL = IMPL (GEN_TYPE_DECL)? STR_INT_NAME (GEN_TYPE_CALL)? COLON
+    # TRAIT_IMPL = IMPL (GEN_TYPE_DECL)? TRAIT_NAME (GEN_TYPE_CALL)? FOR STR_INT_NAME (GEN_TYPE_CALL)? COLON
+    base = self.getType()
+    self.verify('IMPL')
+    implDict = dict()
+    
+    # See if output has generic types
+    if (self.check('LT')):
+      implDict['outGeneric'] = self.loadGenTypeDecl()
+    else:
+      implDict['outGeneric'] = []
+    
+    # At this point, we are unsure if it is a inherent impl or trait impl
+    idName = self.loadBaseName('NAME')
+    
+    # See if type/trait has generic types
+    if (self.check('LT')):
+      genNode = self.loadGenTypeCall()
+    else:
+      genNode = []
+      
+    if (self.check('FOR')):
+      self.verify('FOR')
+      name = self.loadBaseName('NAME')
+      # See if output has generic types
+      if (self.check('LT')):
+        typeGen = self.loadGenTypeCall()
+      else:
+        typeGen = []
+        
+      # Pack data
+      implDict['name'] = name
+      implDict['typeGeneric'] = typeGen
+      implDict['traitImpl'] = True
+      implDict['traitName'] = idName
+      implDict['traitGeneric'] = genNode
+    else:
+      # No more info, pack data
+      implDict['name'] = idName
+      implDict['typeGeneric'] = genNode
+      implDict['traitImpl'] = False
+      implDict['traitName'] = ''
+      implDict['traitGeneric'] = []
+      
+    if (implDict['traitImpl'] and not self.check('COLON')):
+      # For trait implementations, statements are not necessary 
+      # This is due to some traits with all inherent functions
+      implDict['nodes'] = []
+      return BaseAST(base, comment, implDict)
+      
+    
+    self.verify('COLON')
+    comment = self.skip()
+    
+    self.addScope()
+    
+    #Load fields
+    nodes = self.loadTraitImplStatements()
+      
+    #Return to original scope
+    self.rmScope()
+      
+    #Return field node
+    implDict['nodes'] = nodes
+    return BaseAST(base, comment, implDict)
+    
+  def loadTraitImplStatements(self):
+    # Load trait statements
+    # (CONST_VAR_DECL | ATTR_DECL | FUNC_DEF | FUNC_DECL | TASK_DEF | TASK_DECL)
+    declNodes =[]
+    decl = ['FUNC', 'TASK', 'ATTR', 'CONST']
+    while (self.check(decl,True)):
+      # Verify scope
+      self.checkScope()
+      
+      if (self.check('FUNC')):
+        declNodes.append(self.loadFunctionDecl(includeSelf=True))
+      elif (self.check('TASK')):
+        declNodes.append(self.loadTaskDecl(includeSelf=True))
+      elif (self.check('CONST')):
+        declNodes.append(self.loadVarDecl('const'), includeSelf=True)
+      elif (self.check('ATTR')):
+        declNodes.append(self.loadAttrDecl(includeSelf=True))
+        
+    return declNodes
+    
+  def loadVarDecl(self, declType, includeSelf=False):
+    # TYPE_DECL = TYPE_NAME GEN_TYPE_DECL? CALL_ARG_LIST? INDEX_LIST?
+    # TYPE_NAME = ID (DOT ID)*
+    # VAR_DECL = TYPE_DECL ID
+    # 
+    # GEN_DECL = VAR_DECL (ASSIGN CMPX_EXPR)?
+    # PORT_DECL = TYPE_DECL (BASE_INTERFACE|EXT_INTERFACE) ID
+    # STRUCT_FIELD = VAR_DECL (ASSIGN CMPX_EXPR)?
+    # INTERFACE_FIELD = TYPE_DECL EXT_INTERFACE ID
+    # CONST_VAR_DECL = CONST VAR_DECL ASSIGN CMPX_EXPR
+    # SIGNAL_VAR_DECL = (CONST)? VAR_DECL (ASSIGN CMPX_EXPR)?
     varType = dict()
     
+    if (declType not in ['gen', 'port', 'struct', 'interface', 'const', 'signal']):
+      raise('loadVarDecl parse error')
+    
+    # Verify scope
+    self.checkScope()
+    
+    # Determine if const variable
+    if (declType is 'signal'):
+      if (self.check('CONST')):
+        self.verify('CONST')
+        varType['const'] = True
+      else:
+        varType['const'] = False
+    elif (declType is 'gen'):
+      varType['const'] = True
+    elif (declType is 'port'):
+      varType['const'] = False
+    elif (declType is 'const'):
+      self.verify('CONST')
+      varType['const'] = True
+    elif (declType is 'struct'):
+      varType['const'] = False
+    elif (declType is 'interface'):
+      varType['const'] = False
+    
+    
     # Define variable
-    varType['type'] = self.getValue()
-    self.verify('ID')
+    varType['typeName'] = self.loadBaseName('TYPE', includeSelf) # No
+      
+    # See if module has generic types
+    if (self.check('LT')):
+      varType['typeGenerics'] = self.loadGenTypeDecl()
+    else:
+      varType['typeGenerics'] = []
     
     # Determine type def
     if (self.check('LPAREN')):
@@ -421,48 +685,228 @@ class SyntaxParser(object):
     else:
       varType['array'] = deepcopy(defaultArray)
       
-    #Master interface direction
-    varType['port'] = self.getValue()
-    self.verify('BASE_INTERFACE')
+    # Generic or not
+    if (declType is 'gen'):
+      varType['generic'] = True
+    else:
+      varType['generic'] = False
+    
+    # Only ports and interfaces have interface types
+    if (declType is 'port'):
+      # Interface type
+      varType['port'] = self.getValue()
+      self.verify(['BASE_INTERFACE','EXT_INTERFACE'])
+    elif (declType is 'interface'):
+      # Interface type
+      varType['port'] = self.getValue()
+      self.verify('EXT_INTERFACE')
+    else:
+      varType['port'] = None
     
     # Name
     varType['name'] = self.getValue()
     self.verify('ID')
     
+    # Only variables and gen can have initial values
+    if (declType in ['gen', 'struct', 'const', 'signal']):
+      #Check for initial value
+      if (self.check('ASSIGN')):
+        self.verify('ASSIGN')
+        varType['value'] = self.loadComplexExpr(True)
+      else:
+        varType['value'] = None
+    else:
+      varType['value'] = None
+
     # Skip
     comment = self.skip()
     
-    return BaseAST('FIELD', comment, varType)
+    if (declType in ['struct','interface']):
+      return BaseAST('FIELD', comment, varType)
+    else:
+      return BaseAST('DECL', comment, varType)
     
-  def loadFunction(self):
-    # Load line (FUNCTION OPER_LIST DECL_ARG_LIST COLON)
-    # OPER_LIST = (ID|EXP_OPER|POST_OPER|CMPD_ARITH_ASSIGN|CMPD_LOGICAL_ASSIGN|RELATION_OPER|ADD_SUB_OPER|DIV|STAR|CAT|LOGICAL_OPER|SHIFT_OPER|MOD_REM_OPER|NOT_OPER)
-    base = 'FUNCTION'
-    self.verify('FUNCTION',True)
+  def loadEnumDecl(self):
+    # Load (ENUM ID ASSIGN LPAREN ID (COMMA ID)* RPAREN)
+    self.verify('ENUM')
+    enumDict = dict()
+    enumDict['name'] = self.getValue()
+    self.verify('ID')
+    self.verify('ASSIGN')
+    self.verify('LPAREN')
+    
+    # Load states
+    states = [self.getValue()]
+    self.verify('ID')
+    while (self.check('COMMA')):
+      self.verify('COMMA')
+      states.append(self.getValue())
+      self.verify('ID')
+      
+    self.verify('RPAREN')
+    enumDict['states'] = states
+    comment = self.skip()
+    
+    return BaseAST('ENUM',comment,enumDict)
+    
+  def loadAttrDecl(self, includeSelf=False):
+    # Load (ATTR_DECL = ATTR LPAREN ATTR_SPEC (COMMA ATTR_SPEC)* RPAREN FOR TYPE_NAME)
+    self.verify('ATTR')
+    attrDict = dict()
+    self.verify('LPAREN')
+    
+    # Load states
+    nodes = [self.loadAttrSpec()]
+    while (self.check('COMMA')):
+      self.verify('COMMA')
+      nodes.append(self.loadAttrSpec())
+      
+    self.verify('RPAREN')
+    attrDict['spec'] = nodes
+    
+    self.verify('FOR')
+    attrDict['name'] = self.loadBaseName('NAME',includeSelf) # Yes
+    
+    comment = self.skip()
+    
+    return BaseAST('ATTR', comment, attrDict)
+    
+  def loadAttrSpec(self):
+    # Load (ATTR_SPEC = ID ASSIGN SIMP_EXPR)
+    specDict = dict()
+    specDict['name'] = self.getValue()
+    self.verify('ID')
+    self.verify('ASSIGN')
+    specDict['value'] = self.loadSimpleExpr(False)
+    
+    return BaseAST('ATTRSPEC', [], specDict)
+    
+  def loadFunctionDecl(self, includeSelf=False):
+    # Load line FUNC_DEF = FUNC FUNC_NAME GEN_TYPE_DECL? DECL_ARG_LIST? RARROW RETURN_TYPE
+    # FUNC_DECL = FUNC_DEF COLON
+    # FUNC_NAME = (ID | LOGICAL_OPER | MOD_REM_OPER | NOT_OPER)
+    # FUNC_STMT = (DECLARE_DECL BASE_DECL_STMT)? LOGIC_DECLARE FUNC_LOGIC_STMT
+    
+    base = 'FUNC'
+    self.verify('FUNC',True)
     funcDict = dict()
     
     funcDict['name'] = self.getValue()
-    functionNames = ['ID', 'EXP_OPER',' POST_OPER', 'CMPD_ARITH_ASSIGN', 'CMPD_LOGICAL_ASSIGN', 'RELATION_OPER', 'ADD_SUB_OPER', 'DIV', 'STAR', 'CAT', 'LOGICAL_OPER', 'SHIFT_OPER', 'MOD_REM_OPER', 'NOT_OPER']
+    functionNames = ['ID', 'RELATION_OPER', 'LOGICAL_OPER', 'MOD_REM_OPER', 'NOT_OPER']
     self.verify(functionNames)
     
+    # See if trait has generic types
+    if (self.check('LT')):
+      funcDict['generics'] = self.loadGenTypeDecl()
+    else:
+      funcDict['generics'] = []
+    
     #Load function arguments
-    funcDict['params'] = self.loadDeclArgList()
+    funcDict['params'] = self.loadDeclArgList(includeSelf)
+    
+    # Load return type
+    self.verify('RARROW')
+    funcDict['returnType'] = self.loadReturnType(includeSelf)
       
-    self.verify('COLON')
+    if self.check('COLON'):
+      self.verify('COLON')
+      funcDict['funcDef'] = False
+    else:
+      funcDict['funcDef'] = True
+      comment = self.skip()
+      return BaseAST(base, [], funcDict)
+    
     comment = self.skip()
     
     # Add scope
     self.addScope()
     
-    #Load function statements
-    nodes = self.loadFuncStatements()
+    # Check if declare block exists
+    funcDict['declareBlock'] = None
+    if (self.check('DECLARE')):
+      #Next load signal definitions
+      funcDict['declareBlock'] = self.loadDeclareBlock()
+    
+    #Next load logic
+    funcDict['logicBlock'] = self.loadLogicBlock('func')
       
     #Return to original scope
     self.rmScope()
       
-    #Return field node
-    funcDict['statements'] = nodes
     return BaseAST(base, comment, funcDict)
+    
+  def loadTaskDecl(self, includeSelf=False):
+    # Load line TASK_DEF = TASK TASK_NAME (GEN_TYPE_DECL)? (DECL_ARG_LIST)? RARROW RETURN_TYPE
+    # TASK_DECL = TASK_DEF COLON
+    # TASK_NAME = ID
+    # TASK_STMT = (DECLARE_DECL BASE_DECL_STMT)? LOGIC_DECLARE TASK_LOGIC_STMT
+    
+    base = 'TASK'
+    self.verify('TASK',True)
+    taskDict = dict()
+    
+    taskDict['name'] = self.getValue()
+    self.verify('ID')
+    
+    # See if trait has generic types
+    if (self.check('LT')):
+      taskDict['generics'] = self.loadGenTypeDecl()
+    else:
+      taskDict['generics'] = []
+    
+    #Load function arguments
+    taskDict['params'] = self.loadDeclArgList(includeSelf)
+    
+    # Load return type
+    self.verify('RARROW')
+    taskDict['returnType'] = self.loadReturnType(includeSelf)
+      
+    if self.check('COLON'):
+      self.verify('COLON')
+      taskDict['taskDef'] = False
+    else:
+      taskDict['taskDef'] = True
+      return BaseAST(base, [], taskDict)
+    
+    comment = self.skip()
+    
+    # Add scope
+    self.addScope()
+    
+    # Check if declare block exists
+    taskDict['declareBlock'] = None
+    if (self.check('DECLARE')):
+      #Next load signal definitions
+      taskDict['declareBlock'] = self.loadDeclareBlock()
+    
+    #Next load logic
+    taskDict['logicBlock'] = self.loadLogicBlock('task')
+      
+    #Return to original scope
+    self.rmScope()
+      
+    return BaseAST(base, comment, taskDict)
+    
+  def loadReturnType(self, includeSelf):
+    # RETURN_TYPE = (LPAREN GEN_TYPE (COMMA GEN_TYPE)* RPAREN) | TYPE_NAME
+    if self.check('LPAREN'):
+      self.verify('LPAREN')
+      
+      # Load types
+      genNodes = []
+      genNodes.append(self.loadGenType(includeSelf))
+      while (self.check('COMMA')):
+        self.verify('COMMA')
+        genNodes.append(self.loadGenType(includeSelf))
+        
+      self.verify('RPAREN')
+      
+    else:
+      # Load types
+      genNodes = []
+      genNodes.append(self.loadBaseName('TYPE', includeSelf)) # Yes
+      
+    return genNodes
     
   def loadCallArgList(self, isDecl):
     # Load line (LPAREN (SIMP_EXPR (COMMA SIMP_EXPR)*)? RPAREN)
@@ -479,7 +923,7 @@ class SyntaxParser(object):
     self.verify('RPAREN')
     return argNodes
     
-  def loadDeclArgList(self):
+  def loadDeclArgList(self, includeSelf=False):
     # Load line (LPAREN (DECL_ARG (COMMA DECL_ARG)*)? RPAREN)
     self.verify('LPAREN')
     
@@ -490,7 +934,7 @@ class SyntaxParser(object):
       return argNodes
     
     # Load vars
-    argNodes.append(self.loadDeclArg())
+    argNodes.append(self.loadDeclArg(includeSelf))
     while (self.check('COMMA')):
       self.verify('COMMA')
       argNodes.append(self.loadDeclArg())
@@ -498,12 +942,17 @@ class SyntaxParser(object):
     self.verify('RPAREN')
     return argNodes
     
-  def loadDeclArg(self):
-    #Load line (TYPE (STAR)* ID (ASSIGN CPLX_EXPR)?)
+  def loadDeclArg(self, includeSelf=False):
+    #Load line (TYPE_NAME GEN_TYPE_DECL? (STAR)* (ID|SELFVALUE) (ASSIGN CPLX_EXPR)?)
+    # TYPE_NAME = ((ID (DOT ID)*) | SELFTYPE)
     # Define variable
     varType = dict()
-    varType['type'] = self.getValue()
-    self.verify('ID')
+    varType['type'] = self.loadBaseName('TYPE', includeSelf)
+    # See if module has generic types
+    if (self.check('LT')):
+      varType['generics'] = self.loadGenTypeDecl()
+    else:
+      varType['generics'] = []
     
     #Determine number of dimensions
     dim = 0
@@ -515,7 +964,10 @@ class SyntaxParser(object):
     
     #Get name
     varType['name'] = self.getValue()
-    self.verify('ID')
+    name = ['ID']
+    if (includeSelf):
+      name.append('SELFVALUE')
+    self.verify(name)
     
     #See if default values are set
     varType['value'] = None
@@ -526,14 +978,115 @@ class SyntaxParser(object):
       varType['value'] = self.loadComplexExpr(True)
     
     return BaseAST('PARAM', [], varType)
+    
+  def loadGenTypeDecl(self):
+    # GEN_TYPE_DECL = LT GENERIC_TYPE (COMMA GENERIC_TYPE)* GT
+    self.verify('LT')
+    
+    # Load types
+    genNodes = []
+    genNodes.append(self.loadGenericType())
+    while (self.check('COMMA')):
+      self.verify('COMMA')
+      genNodes.append(self.loadGenericType())
+      
+    self.verify('GT')
+    return genNodes
+    
+  def loadGenericType(self):
+    # GENERIC_TYPE = (ID | SELFTYPE) (TYPE_BOUND)? (ASSIGN TYPE_NAME)?
+    genDict = dict()
+    
+    # Load generic type name
+    genDict['name'] = self.getValue()
+    self.verify(['ID','SELFTYPE'])
+    
+    # Are there type bounds?
+    if (self.check('LPAREN')):
+      genDict['typeBound'] = self.loadTypeBound()
+    else:
+      genDict['typeBound'] = []
+      
+    # Is there a default type?
+    if (self.check('ASSIGN')):
+      self.verify('ASSIGN')
+      genDict['defaultType'] = self.loadBaseName('TYPE')
+    else:
+      genDict['defaultType'] = None
+      
+    #Create module node
+    return BaseAST(base, [], genDict)
+    
+  def loadTypeBound(self):
+    # TYPE_BOUNDS = LPAREN ID (ADD_OPER ID)* RPAREN
+    self.verify('LPAREN')
+    
+    # Get first bound
+    bounds = [self.getValue()]
+    self.verify('ID')
+    
+    # Determine if ther are more bounds
+    if self.check('ADD_OPER'):
+      self.verify('ADD_OPER')
+      bounds.append(self.getValue())
+      self.verify('ID')
+    
+    self.verify('RPAREN')
+    
+    return bounds
+    
+  def loadGenTypeCall(self, includeSelf=False):
+    # GEN_TYPE_CALL = LT GEN_TYPE (COMMA GEN_TYPE)* GT
+    # TYPE_NAME = ID (DOT ID)*
+    
+    self.verify('LT')
+    
+    # Load types
+    genNodes = []
+    genNodes.append(self.loadGenType(includeSelf))
+    while (self.check('COMMA')):
+      self.verify('COMMA')
+      genNodes.append(self.loadGenType(includeSelf))
+      
+    self.verify('GT')
+    return genNodes
+    
+  def loadGenType(self, includeSelf=False):
+    #Load line (TYPE_NAME GEN_TYPE_DECL? (STAR)*)
+    # TYPE_NAME = ((ID (DOT ID)*) | SELFTYPE)
+    
+    # Define variable
+    varType = dict()
+    varType['type'] = self.loadBaseName('TYPE', includeSelf)
+    # See if module has generic types
+    if (self.check('LT')):
+      varType['generics'] = self.loadGenTypeDecl()
+    else:
+      varType['generics'] = []
+    
+    #Determine number of dimensions
+    dim = 0
+    while (self.check('STAR')):
+      dim += 1
+      self.verify('STAR')
+      
+    varType['dim'] = dim
+    
+    return BaseAST('TYPE', [], varType)
       
   def loadModuleDecl(self):
-    # Read module line (MODULE ID (LPAREN BLACKBOX RPAREN)? COLON)
+    # Read module line (MODULE ID GEN_TYPE_DECL? (LPAREN BLACKBOX RPAREN)? COLON)
     base = self.getType()
     self.verify('MODULE', True)
     modDict = dict()
     modDict['name'] = self.getValue()
     self.verify('ID')
+    
+    # See if module has generic types
+    if (self.check('LT')):
+      modDict['generics'] = self.loadGenTypeDecl()
+    else:
+      modDict['generics'] = []
     
     # See if module is blackbox
     if (self.check('LPAREN')):
@@ -563,9 +1116,6 @@ class SyntaxParser(object):
     #Return to original scope
     self.rmScope()
     
-    # Load architecture
-    modDict['archNode'] = self.loadArch()
-    
     #Create module node
     return BaseAST(base, comment, modDict)
     
@@ -581,6 +1131,9 @@ class SyntaxParser(object):
     # Loop over all generic variables
     genVars = []
     while (self.check('ID')):
+      # Verify scope
+      self.checkScope()
+      
       # Create variable declaration
       genVars.append(self.loadVarDecl('gen'))
       
@@ -602,6 +1155,9 @@ class SyntaxParser(object):
     # Loop over all ports
     portVars = []
     while (self.check('ID')):
+      # Verify scope
+      self.checkScope()
+      
       # Create port declaration
       portVars.append(self.loadVarDecl('port'))
       
@@ -610,225 +1166,81 @@ class SyntaxParser(object):
       
     return portVars
     
-  def loadArch(self):
+  def loadArchDecl(self):
     # Get arch scope
-    # Load line (ARCH ID COLON)
+    # Load line (ARCH ID GEN_TYPE_CALL? FOR ID GEN_TYPE_CALL? COLON)
     base = self.getType()
     self.verify('ARCH', True)
     archDict = dict()
-    archDict['module'] = self.getValue()
-    self.verify('ID')
-    self.verify('LPAREN')
     archDict['name'] = self.getValue()
     self.verify('ID')
-    self.verify('RPAREN')
+    
+    # See if architecture has generic types
+    if (self.check('LT')):
+      archDict['archGenerics'] = self.loadGenTypeDecl()
+    
+    self.verify('FOR')
+    archDict['module'] = self.getValue()
+    self.verify('ID')
+    
+    # See if module has generic types
+    if (self.check('LT')):
+      archDict['modGenerics'] = self.loadGenTypeCall()
+    
     self.verify('COLON')
     comment = self.skip()
     
     # Add scope
     self.addScope()
     
-    # Check if signal block exists
+    # Check if declare block exists
     archDict['declareBlock'] = None
     if (self.check('DECLARE')):
       #Next load signal definitions
       archDict['declareBlock'] = self.loadDeclareBlock()
     
     #Next load logic
-    archDict['logicBlock'] = self.loadLogicBlock()
+    archDict['logicBlock'] = self.loadLogicBlock('arch')
     
     #Return to original scope
     self.rmScope()
     
     return BaseAST(base, comment, archDict)
     
-  def loadDeclareBlock(self):
-    #Load line (DECLARE COLON)
-    base = self.getType()
-    self.verify('DECLARE',True)
-    self.verify('COLON')
-    comment = self.skip()
-    
-    # Add scope
-    self.addScope()
-    
-    # Loop over all declarations
-    declNodes =[]
-    decl = ['STRUCT','INTERFACE','FUNCTION','ENUM','ID']
-    while (self.check(decl,True)):
-      if (self.check('STRUCT')):
-        declNodes.append(self.loadStruct())
-      elif (self.check('INTERFACE')):
-        declNodes.append(self.loadInterface())
-      elif (self.check('FUNCTION')):
-        declNodes.append(self.loadFunction())
-      elif (self.check('ID')):
-        declNodes.append(self.loadVarDecl('var'))
-      elif (self.check('ENUM')):
-        declNodes.append(self.loadEnumDecl())
-      
-    declDict = {'declNodes': declNodes}
-    
-    #Return to original scope
-    self.rmScope()
-    
-    return BaseAST(base, comment, declDict)
-    
-  def loadLogicBlock(self):
-    #Load line (LOGIC COLON)
-    base = self.getType()
-    self.verify('LOGIC',True)
-    self.verify('COLON')
-    comment = self.skip()
-    
-    # Add scope
-    self.addScope()
-    
+  def loadArchStatements(self):
     # Load logic statements
-    logicDict = {'statements': self.loadLogicStatements()}
-    
-    #Return to original scope
-    self.rmScope()
-    
-    return BaseAST(base, comment, logicDict)
-    
-  def loadVarDecl(self, declType):
-    # Load line for gen  (TYPE (CALL_ARG_LIST)? (INDEX_LIST)? ID (ASSIGN CMPX_EXPR)?)
-    # Load line for port (TYPE (CALL_ARG_LIST)? (INDEX_LIST)? INTERFACE_TYPE ID)
-    # Load line for var  ((CONST)? TYPE (CALL_ARG_LIST)? (INDEX_LIST)? ID (ASSIGN CMPX_EXPR)?)
-    varType = dict()
-    
-    if (declType is 'var'):
-      if (self.check('CONST')):
-        self.verify('CONST')
-        varType['const'] = True
-      else:
-        varType['const'] = False
-    elif (declType is 'gen'):
-      varType['const'] = True
-    elif (declType is 'port'):
-      varType['const'] = False
-    else:
-      raise('LoadVarDecl parse error')
-    
-    
-    # Define variable
-    varType['typeName'] = self.getValue()
-    self.verify('ID',True)
-    
-    # Determine type def
-    if (self.check('LPAREN')):
-      varType['params'] = self.loadCallArgList(True)
-    else:
-      varType['params'] = []
-      
-    # Determine array size
-    varType['decl'] = True
-    if (self.check('LBRACK')):
-      varType['array'] = self.loadIndexList(True)
-    else:
-      varType['array'] = deepcopy(defaultArray)
-      
-    # Generic or not
-    if (declType is 'gen'):
-      varType['generic'] = True
-    else:
-      varType['generic'] = False
-    
-    # Only ports have interface types
-    if (declType is 'port'):
-      # Interface type
-      varType['port'] = self.getValue()
-      self.verify(['BASE_INTERFACE','EXT_INTERFACE','ID'])
-    else:
-      varType['port'] = None
-    
-    # Name
-    varType['name'] = self.getValue()
-    self.verify('ID')
-    
-    # Only variables and gen can have initial values
-    if (declType is not 'port'):
-      #Check for initial value
-      if (self.check('ASSIGN')):
-        self.verify('ASSIGN')
-        varType['value'] = self.loadComplexExpr(True)
-      else:
-        varType['value'] = None
-    else:
-      varType['value'] = None
-
-    # Skip
-    comment = self.skip()
-    
-    return BaseAST('DECL', comment, varType)
-    
-  def loadEnumDecl(self):
-    # Load (ENUM ID ASSIGN LPAREN ID (COMMA ID)* RPAREN)
-    base = self.getType()
-    self.verify('ENUM')
-    enumDict = dict()
-    enumDict['var'] = self.getValue()
-    self.verify('ID')
-    self.verify('ASSIGN')
-    self.verify('LPAREN')
-    
-    # Load states
-    states = [self.getValue()]
-    self.verify('ID')
-    while (self.check('COMMA')):
-      self.verify('COMMA')
-      states.append(self.getValue())
-      self.verify('ID')
-      
-    self.verify('RPAREN')
-    enumDict['states'] = states
-    comment = self.skip()
-    
-    return BaseAST(base,comment,enumDict)
-    
-  def loadLogicStatements(self):
-    # Load logic statements
-    # (ASSIGNMENT|FOR|CASE|IF|MODULE_INST|SPRO|APRO|PRO|ASSERTION|RENAME_CALL)
+    # (ASSIGNMENT|METHOD_TASK_CALL|FOR|CASE|IF|MODULE_INST|SPRO|APRO|PRO|ASSERTION|RENAME_CALL)
     statementNodes = []
-    tokenList = ['ID', 'FOR', 'IF', 'CASE', 'SPRO', 'APRO', 'PRO', 'ASSERT', 'RENAME']
+    tokenList = ['ID', 'FOR', 'IF', 'CASE', 'SPRO', 'APRO', 'PRO', 'ASSERT', 'RENAME', 'LPAREN']
     while (self.check(tokenList,True)):
       # Load all statements
-      statementNodes.append(self.loadStatement(False))
+      statementNodes.append(self.loadStatement())
     
     return statementNodes
     
   def loadFuncStatements(self):
     # Load function statements
-    # (VAR_DECL|ASSIGNMENT|FOR|CASE|IF|ASSERTION|RETURN)
+    # (ASSIGNMENT|METHOD_TASK_CALL|FOR|CASE|IF|ASSERTION|REPORT|RETURN)
     statementNodes = []
-    tokenList = ['ID', 'FOR', 'IF', 'CASE', 'ASSERT', 'RETURN']
+    tokenList = ['ID', 'FOR', 'IF', 'CASE', 'ASSERT', 'REPORT', 'RETURN', 'LPAREN', 'SELFVALUE']
     while (self.check(tokenList,True)):
-      statementNodes.append(self.loadStatement(False))
+      # Load all statements
+      statementNodes.append(self.loadStatement())
     
     return statementNodes
     
-  def loadProStatements(self):
-    # Load process statements
-    # (ASSIGNMENT|FOR|CASE|IF|ASSERTION)
+  def loadTaskStatements(self):
+    # Load task statements
+    # (ASSIGNMENT | METHOD_TASK_CALL | FORBLOCK | CASEBLOCK | IFBLOCK | ASSERTION | PROBLOCK | MODULE_INST | RETURN_STMT)
     statementNodes = []
-    tokenList = ['ID', 'FOR', 'IF', 'CASE', 'ASSERT']
+    tokenList = ['ID', 'FOR', 'IF', 'CASE', 'SPRO', 'APRO', 'PRO', 'ASSERT', 'REPORT', 'RETURN', 'LPAREN', 'SELFVALUE']
     while (self.check(tokenList,True)):
-      if (self.check('ID')):
-        # Ensure not to load module inst.
-        type = self.determineStatement()
-        if (type is 'MODULE'):
-          #Module inst, error
-          raise Exception('Module instatiation detected in process')
-        elif (type is 'VAR_DECL'):
-          raise Exception('Variable declaration detected in process')
-        
-      # Load statement
-      statementNodes.append(self.loadStatement(True))
+      # Load all statements
+      statementNodes.append(self.loadStatement())
     
     return statementNodes
     
-  def loadStatement(self,isPro):
+  def loadStatement(self, isPro=False):
     # Allowed statements:
     if (self.check('SPRO')):
       return self.loadSpro()
@@ -860,17 +1272,17 @@ class SyntaxParser(object):
     elif (self.check('RETURN')):
       return self.loadReturn()
       
-    elif (self.check('CONST')):
-      return self.loadVarDecl('var')
+    elif (self.check('LPAREN')):
+      return self.loadAssignment()
       
-    elif (self.check('ID')):
+    elif (self.check(['ID', 'SELFVALUE'])):
       # If ID, determine if its a module inst., var declaration, or assignment
       type = self.determineStatement()
       if (type == 'MODULE'):
         return self.loadModuleInst()
         
-      elif (type == 'VAR_DECL'):
-        return self.loadVarDecl('var')
+      elif (type == 'METHOD_TASK'):
+        return self.loadVarDecl('signal')
         
       elif (type == 'ASSIGNMENT'):
         return self.loadAssignment()
@@ -885,49 +1297,50 @@ class SyntaxParser(object):
   def determineStatement(self):
     # Determine if its a module inst., var declaration, or assignment
     # MODULE_INST = ID ID (LPAREN ID RPAREN)? COLON
-    # VAR_DECL = ID (CALL_ARG_LIST)? (INDEX_LIST)? ID (ASSIGN CMPX_EXPR)?
-    # ASSIGNMENT = ID (INDEX_LIST)? (DOT VAR)? (ASSIGN|CMPD_ARITH_ASSIGN|CMPD_LOGICAL_ASSIGN|POST_OPER) CMPX_EXPR
+    #    Look for (ID ID) pattern
+    # FUNC_METHOD_CALL = ID (INDEX_LIST)? (DOT ID (INDEX_LIST)?)* (DOT FUNC_CALL)
+    # ASSIGNMENT = (VAR | TUPLE_EXPR) ASSIGN_OPTIONS CMPX_EXPR
     
     ind = 0
-    token = self.peek(ind)
+    token1 = self.token
+    token2 = self.peek(ind)
     
     asgnList = ['ASSIGN', 'CMPD_ARITH_ASSIGN', 'CMPD_LOGICAL_ASSIGN', 'POST_OPER']
     
     # See what next ID is
-    if (token.type == 'ID'):
-      # Must be module or decl
-      token = self.peek(ind+1)
-      if (token.type in ['LPAREN', 'COLON']):
-        # Module
-        return 'MODULE'
-      elif (token.type in ['ASSIGN','EOL']):
-        # Variable declaration
-        return 'VAR_DECL'
-      else:
-        self.error()
-    elif (token.type == 'LPAREN'):
-      # Can only be decl
-      return 'VAR_DECL'
-    elif (token.type == 'LBRACK'):
-      # Can be decl or assignment
-      
-      # Skip past all indexing
-      while (self.peek(ind).type == 'LBRACK'):
-        while (self.peek(ind).type != 'RBRACK'):
-          ind += 1
-          if (self.peek(ind).type is 'EOL'):
-            self.error('RBRACK')
-            
-      # Now determere if decl or assignment
-      token = self.peek(ind+1)
-      if (token.type == 'ID'):
-        return 'VAR_DECL'
-      else:
-        return 'ASSIGNMENT'
-    elif (token.type in asgnList):
-      return 'ASSIGNMENT'
+    if ((token1.type == 'ID') and (token2.type == 'ID')):
+      # Both ID, its a module
+      return 'MODULE'
+
     else:
-      print('DetermineStatement: not good')
+      # Check entire line until EOL to check for assignments
+      while (self.peek(ind).type is not 'EOL'):
+        if (self.peek(ind).type in asgnList):
+          return 'ASSIGNMENT'
+        ind += 1
+          
+      # No assignment, so its a task or method call
+      return 'METHOD_TASK'
+    
+  def loadProStatements(self):
+    # Load process statements
+    # (ASSIGNMENT|FOR|CASE|IF|ASSERTION)
+    statementNodes = []
+    tokenList = ['ID', 'FOR', 'IF', 'CASE', 'ASSERT']
+    while (self.check(tokenList,True)):
+      if (self.check('ID')):
+        # Ensure not to load module inst.
+        type = self.determineStatement()
+        if (type is 'MODULE'):
+          #Module inst, error
+          raise Exception('Module instatiation detected in process')
+        elif (type is 'VAR_DECL'):
+          raise Exception('Variable declaration detected in process')
+        
+      # Load statement
+      statementNodes.append(self.loadStatement(True))
+    
+    return statementNodes
     
   def loadSpro(self):
     # Load line (SPRO ARG_LIST COLON)
@@ -1085,7 +1498,7 @@ class SyntaxParser(object):
       
     self.rmScope()
     
-    return BaseAST(base, comment, ifDict)
+    return BaseAST(base, comment, elifDict)
     
   def loadElse(self,isPro):
     # Load line (ELSE COLON)
@@ -1164,10 +1577,15 @@ class SyntaxParser(object):
     return BaseAST('CHOICE', comments, caseDict)
       
   def loadAssignment(self):
-    # Load line (VAR OPER CMPX_EXPR)
+    # Load line ((VAR | TUPLE_EXPR) ASSIGN_OPTIONS CMPX_EXPR)
     # OPER = (ASSIGN|CMPD_ARITH_ASSIGN|CMPD_LOGICAL_ASSIGN|POST_OPER)
     asgnDict = dict()
-    asgnDict['leftVar'] = self.loadVar(False)
+    if (self.check('LPAREN')):
+      asgnDict['leftVar'] = self.loadCallArgList(False)
+    else:
+      asgnDict['leftVar'] = self.loadVar(False)
+      
+    # Determine assignment type
     asgnList = ['ASSIGN', 'CMPD_ARITH_ASSIGN', 'CMPD_LOGICAL_ASSIGN', 'POST_OPER']
     asgnDict['op'] = self.getValue()
     operType = self.getType()
@@ -1184,19 +1602,25 @@ class SyntaxParser(object):
     return BaseAST(operType, comment, asgnDict)
     
   def loadModuleInst(self):
-    # Load line (ID ID (LPAREN ID RPAREN)? COLON)
+    # Load line (ID BASE_NAME GEN_TYPE_CALL? (LPAREN (ID | BLACKBOX) RPAREN)? COLON)
+    # BASE_NAME = ID (DOT ID)*
     base = 'MODULE_INST'
     modDict = dict()
     modDict['name'] = self.getValue()
     self.verify('ID')
-    modDict['module'] = self.getValue()
-    self.verify('ID')
+    modDict['module'] = self.loadBaseName('NAME')
+    
+    # See if module has generic types
+    if (self.check('LT')):
+      modDict['generics'] = self.loadGenTypeCall()
+    else:
+      modDict['generics'] = []
     
     # Determine if specific architecture is called
     if (self.check('LPAREN')):
       self.verify('LPAREN')
       modDict['arch'] = self.getValue()
-      self.verify('ID')
+      self.verify(['ID','BLACKBOX'])
       self.verify('RPAREN')
     else:
       modDict['arch'] = None
@@ -1215,7 +1639,7 @@ class SyntaxParser(object):
     
     self.rmScope()
     
-    return BaseAST(base,comment,modDict)
+    return BaseAST(base, comment, modDict)
     
   def loadGenericInst(self):
     # Load line (GENERICS COLON)
@@ -1295,6 +1719,7 @@ class SyntaxParser(object):
       vars.append(self.loadSimpleExpr(False))
       
       while (self.check('COMMA')):
+        self.verify('COMMA')
         vars.append(self.loadSimpleExpr(False))
         
       self.verify('RPAREN')
@@ -1360,50 +1785,78 @@ class SyntaxParser(object):
   # constant or signal
   def loadComplexExpr(self,isDecl):
     # Load (AGGREGATE | SIMP_EXPR)
-    if (self.check('LCURBRAC')):
-      return self.loadArray(isDecl)
+    if (self.check('LBRACK')):
+      return self.loadAggregate(isDecl)
     else:
       return self.loadSimpleExpr(isDecl)
     
-  def loadArray(self,isDecl):
+  def loadAggregate(self,isDecl):
     # Load line (LCURBRAC ELEM_ASSOC (COMMA ELEM_ASSOC)* RCURBRAC)
     comments = []
-    self.verify('LCURBRAC')
+    self.verify('LBRACK')
     comments += self.skip()
-    args = [self.loadComplexExpr(isDecl)]
+    elem = [self.loadElemAssoc(isDecl)]
     while (self.check('COMMA')):
       self.verify('COMMA')
       comments += self.skip()
-      args.append(self.loadComplexExpr(isDecl))
+      elem.append(self.loadElemAssoc(isDecl))
       comments += self.skip()
       
-    self.verify('RCURBRAC')
+    self.verify('RBRACK')
     
-    aggDict = {'nodes': args}
+    aggDict = dict()
+    aggDict['elem'] = elem
     
-    return BaseAST('ARRAY', comments, aggDict)
+    return BaseAST('AGGREGATE', comments, aggDict)
     
   def loadElemAssoc(self,isDecl):
-    # Load (CHOICE ASSIGN (AGGREGATE|SIMP_EXPR))
+    # Load ((CHOICES ASSIGN)? (AGGREGATE|SIMP_EXPR))
     elemDict = dict()
-    elemDict['left'] = self.loadChoice(isDecl)
-    elemDict['op'] = self.getType()
-    self.verify('ASSIGN')
     
+    # Determine if another aggregate is next, CHOICES 
     if (self.check('LBRACK')):
-      elemDict['right'] = self.loadAggregate()
+      elemDict['left'] = None
+      elemDict['right'] = self.loadAggregate(isDecl)
+      return BaseAST('ELEM', [], elemDict)
+    
+    # At this point, not sure if its choice or value
+    values = self.loadChoices(isDecl)
+    
+    # Check if ASSIGN exists, if then values is the index 
+    # and the values need to be loaded
+    if (self.check('ASSIGN')):
+      self.verify('ASSIGN')
+      elemDict['left'] = values
+      
+      if (self.check('LBRACK')):
+        elemDict['right'] = self.loadAggregate(isDecl)
+      else:
+        elemDict['right'] = self.loadSimpleExpr(isDecl)
     else:
-      elemDict['right'] = self.loadSimpleExpr()
+      elemDict['left'] = None
+      elemDict['right'] = values
     
     return BaseAST('ELEM', [], elemDict)
+    
+  def loadChoices(self,isDecl):
+    # Load CHOICE (OR_BAR CHOICE)*
+    args = []
+    args.append(self.loadChoice(isDecl))
+    while (self.check('OR_BAR')):
+      self.verify('OR_BAR')
+      self.skip()
+      args.append(self.loadChoice(isDecl))
+      self.skip()
+    
+    return args
   
   def loadChoice(self,isDecl):
-    # Load (INDEX|OTHERS)
+    # Load (SLICE | OTHERS)
     if (self.check('OTHERS')):
       arg = BaseAST('OTHERS', [], dict())
       self.verify('OTHERS')
     else:
-      arg = self.loadSimpleExpr(isDecl)
+      arg = self.loadIndex(isDecl)
         
     return arg
     
@@ -1430,25 +1883,10 @@ class SyntaxParser(object):
     return node
   
   def loadRelation(self,isDecl):
-    # Load (SHIFT (RELATION_OPER SHIFT)*)
-    node = self.loadShift(isDecl)
-    
-    oper = ['RELATION_OPER']
-    while (self.check(oper)):
-      # Create new expr node
-      exprDict = dict()
-      exprDict['op']   = self.getValue()
-      self.verify(oper)
-      exprDict['params'] = [node, self.loadShift(isDecl)]
-      node = BaseAST('EXPR', [], exprDict)
-      
-    return node
-    
-  def loadShift(self,isDecl):
-    # Load (TERM (SHIFT_OPER TERM)*)
+    # Load (TERM (RELATION_OPER TERM)*)
     node = self.loadTerm(isDecl)
     
-    oper = ['SHIFT_OPER']
+    oper = ['RELATION_OPER']
     while (self.check(oper)):
       # Create new expr node
       exprDict = dict()
@@ -1460,10 +1898,10 @@ class SyntaxParser(object):
     return node
     
   def loadTerm(self,isDecl):
-    # Load (FACT ((ADD_SUB_OPER | CAT) FACT)*)
+    # Load (FACT ((ADD_OPER | SUB_OPER | CAT) FACT)*)
     node = self.loadFactor(isDecl)
     
-    oper = ['ADD_SUB_OPER','CAT']
+    oper = ['ADD_OPER', 'SUB_OPER', 'CAT']
     while (self.check(oper)):
       # Create new expr node
       exprDict = dict()
@@ -1509,10 +1947,10 @@ class SyntaxParser(object):
     return node
     
   def loadUnary(self,isDecl):
-    # Load ((ADD_SUB_OPER | NOT_OPER)? PRIMARY)
+    # Load ((ADD_OPER | SUB_OPER | NOT_OPER)? PRIMARY)
     exprDict = dict()
     
-    oper = ['ADD_SUB_OPER','NOT_OPER']
+    oper = ['ADD_OPER', 'SUB_OPER', 'NOT_OPER']
     if (self.check(oper)):
       # Create new expr node
       exprDict = dict()
@@ -1528,12 +1966,9 @@ class SyntaxParser(object):
   def loadPrimary(self,isDecl):
     # Load (CONST | REPLICATE | (LPAREN SIMP_EXPR RPAREN) | FUNC | VAR)
     constList = ['INTEGER', 'FLOAT', 'BIT_INIT_HEX', 'BIT_INIT_BIN', 'STRING', 'BOOLEAN']
-    funcList  = ['ID','LOGICAL_OPER','SHIFT_OPER','MOD_REM_OPER','NOT_OPER']
+    funcList  = ['ID', 'LOGICAL_OPER', 'MOD_REM_OPER', 'NOT_OPER']
     if (self.check(constList)):
       return self.loadConst(isDecl)
-      
-    elif (self.check('LCURBRAC')):
-      return self.loadReplicate(isDecl)
       
     elif (self.check('LPAREN')):
       self.verify('LPAREN')
@@ -1543,40 +1978,36 @@ class SyntaxParser(object):
       
     elif (self.check(funcList)):
       # We dont know if it is function or variable
-      if (self.peek().type == 'LPAREN'):
+      if (self.peek().type in ['LPAREN','LT']):
         return self.loadFuncCall(isDecl)
       else:
         return self.loadVar(isDecl)
+        
+    elif (self.check('SELFVALUE')):
+      return self.loadVar(isDecl,includeSelf=True)
+      
+    else:
+      self.error()
     
-  def loadFuncCall(self,isDecl):
-    # Load (FUNC_LIST CALL_ARG_LIST)
-    funcList  = ['ID', 'LOGICAL_OPER', 'RELATION_OPER', 'SHIFT_OPER', 'ADD_SUB_OPER', 'STAR', 'DIV', 'MOD_REM_OPER', 'EXP_OPER', 'NOT_OPER']
+  def loadFuncCall(self, isDecl):
+    # Load (FUNC_NAME GEN_TYPE_CALL? CALL_ARG_LIST)
+    funcList  = ['ID', 'LOGICAL_OPER', 'MOD_REM_OPER', 'NOT_OPER']
     funcDict = {'name': self.getValue()}
     self.verify(funcList)
+    
+    # See if module has generic types
+    if (self.check('LT')):
+      funcDict['generics'] = self.loadGenTypeCall()
+    else:
+      funcDict['generics'] = []
+    
+    # Input parameters
     funcDict['params'] = self.loadCallArgList(isDecl)
     
-    return BaseAST('FUNCCALL',[],funcDict)
-    
-  def loadAttrCall(self,isDecl):
-    # Load (ID CALL_ARG_LIST)
-    attrDict = {'name': self.getValue()}
-    self.verify('ID')
-    attrDict['params'] = self.loadCallArgList(isDecl)
-    
-    return BaseAST('ATTRCALL',[],attrDict)
-  
-  def loadReplicate(self,isDecl):
-    # Load (VAR LCURBRAC SIMP_EXPR RCURBRAC)
-    self.verify('LCURBRAC')
-    expr = self.loadSimpleExpr(isDecl)
-    self.verify('RCURBRAC')
-    
-    #TODO: What do I return
-    return 1
-    
+    return BaseAST('FUNCCALL', [], funcDict)
       
   def loadConst(self, isDecl):
-    # CONST = (INTEGER | FLOAT | BIT_INIT | STRING)
+    # CONST = (INTEGER | FLOAT | BIT_INIT_HEX | BIT_INIT_BIN | STRING | BOOLEAN)
     constList = ['INTEGER', 'FLOAT', 'BIT_INIT_HEX', 'BIT_INIT_BIN', 'STRING', 'BOOLEAN']
     
     numDict = dict()
@@ -1625,11 +2056,14 @@ class SyntaxParser(object):
     
     return BaseAST('CONST', [], numDict)
     
-  def loadVar(self, isDecl):
+  def loadVar(self, isDecl, includeSelf=False):
     #Load (ID (INDEX_LIST)? (DOT VAR)? ) 
     varDict = dict()
     varDict['name'] = self.getValue()
-    self.verify('ID')
+    tokenList = ['ID']
+    if (includeSelf):
+      tokenList.append('SELFVALUE')
+    self.verify(tokenList)
     
     varDict['decl'] = isDecl
     
@@ -1640,20 +2074,21 @@ class SyntaxParser(object):
       varDict['array'] = None
       
     # check for struct or interface variable
+    funcList  = ['ID', 'LOGICAL_OPER', 'MOD_REM_OPER', 'NOT_OPER']
     if (self.check('DOT')):
       self.verify('DOT')
-      if (self.check('ID') and (self.peek().type == 'LPAREN')):
-        # Load attribute
+      if (self.check(funcList) and (self.peek().type in ['LPAREN','LT'])):
+        # Load method
         varDict['field'] = None
-        varDict['attr']  = self.loadAttrCall(isDecl)
+        varDict['method']  = self.loadFuncCall(isDecl)
       elif (self.check('ID')):
         # Recursively load fields
         varDict['field'] = self.loadVar(isDecl)
-        varDict['attr']  = None
+        varDict['method']  = None
       
     else:
       varDict['field'] = None
-      varDict['attr']  = None
+      varDict['method']  = None
       
     return BaseAST('VAR', [], varDict)
     
@@ -1679,4 +2114,24 @@ class SyntaxParser(object):
     # Index
     else:
       return [left]
+      
+  def loadBaseName(self, baseName, includeSelf=False):
+    # TYPE_NAME = ID (DOT ID)*
+    genType = dict()
+    genType['name'] = [self.getValue()]
+    
+    # If SELF, only thing. Else it could be concrete type
+    if (self.check('ID')):
+      self.verify('ID')
+        
+      # Check if DOT is used to only load one item
+      while (self.check('DOT')):
+        self.verify('DOT')
+        genType['name'].append(self.getValue())
+        self.verify('ID')
+        
+    elif (self.check('SELFTYPE')):
+      self.verify('SELFTYPE')
+      
+    return BaseAST(baseName, [], genType)
       

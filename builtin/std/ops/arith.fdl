@@ -1,0 +1,69 @@
+
+trait Pos:
+  ## Performs the positive operation
+  func pos(Self self) -> Self
+  
+trait Neg:
+  ## Performs the negate operation
+  func neg(Self self) -> Self
+  
+trait Abs:
+  ## Performs the absolute operation
+  func abs(Self self) -> Self
+
+
+
+trait Add<Rhs = Self>:
+  ## Performs the '+' operation
+  func add(Self self, Rhs rhs) -> Self
+  
+trait Sub<Rhs = Self>:
+  ## Performs the '-' operation
+  func sub(Self self, Rhs rhs) -> Self
+  
+trait Mul<Rhs = Self>:
+  ## Performs the '*' operation
+  func mul(Self self, Rhs rhs) -> Self
+
+trait Div<Rhs = Self>:
+  ## Performs the '/' operation
+  func div(Self self, Rhs rhs) -> Self
+  
+trait Mod<Rhs = Self>:
+  ## Performs the 'mod' operation
+  func mod(Self self, Rhs rhs) -> Self
+  
+trait Rem<Rhs = Self>:
+  ## Performs the 'rem' operation
+  func rem(Self self, Rhs rhs) -> Self
+  
+trait Exp<Rhs = Self>:
+  ## Performs the '**' operation
+  func exp (Self self, Rhs rhs) -> Self
+  
+  
+  
+trait AddAssign<Rhs = Self>:
+  ## Performs the '+=' operation
+  func add_assign(Self self, Rhs rhs) -> Self
+  
+trait SubAssign<Rhs = Self>:
+  ## Performs the '-=' operation
+  func sub_assign(Self self, Rhs rhs) -> Self
+  
+trait MulAssign<Rhs = Self>:
+  ## Performs the '*=' operation
+  func mul_assign(Self self, Rhs rhs) -> Self
+
+trait DivAssign<Rhs = Self>:
+  ## Performs the '/=' operation
+  func div_assign(Self self, Rhs rhs) -> Self
+  
+trait PostIncr:
+  ## Performs the '++' operation
+  func post_incr(Self self) -> Self
+  
+trait PostDecr:
+  ## Performs the '--' operation
+  func post_decr(Self self) -> Self
+

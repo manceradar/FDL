@@ -1,0 +1,5 @@
+
+trait Fmt:
+  ## Standard format string function
+  func str(Self self, str formatspec) -> str
+

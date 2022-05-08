@@ -1,0 +1,36 @@
+
+trait Not:
+  ## Performs the 'not' operation
+  func not(Self self) -> Self
+  
+trait And<Rhs = Self>:
+  ## Performs the 'and' operation
+  func and(Self self, Rhs rhs) -> Self
+  
+trait Or<Rhs = Self>:
+  ## Performs the 'or' operation
+  func or(Self self, Rhs rhs) -> Self
+  
+trait Xor<Rhs = Self>:
+  ## Performs the 'xor' operation
+  func xor(Self self, Rhs rhs) -> Self
+  
+trait Nand<Rhs = Self>:
+  ## Performs the 'nand' operation
+  func nand(Self self, Rhs rhs) -> Self
+  
+trait Nor<Rhs = Self>:
+  ## Performs the 'nor' operation
+  func nor(Self self, Rhs rhs) -> Self
+  
+trait Xnor<Rhs = Self>:
+  ## Performs the 'xnor' operation
+  func xnor(Self self, Rhs rhs) -> Self
+  
+trait AndAssign<Rhs = Self>:
+  ## Performs the 'and' operation
+  func and_assign(Self self, Rhs rhs) -> Self
+  
+trait OrAssign<Rhs = Self>:
+  ## Performs the 'or' operation
+  func or_assign(Self self, Rhs rhs) -> Self

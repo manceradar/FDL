@@ -1,0 +1,38 @@
+trait Concat<Rhs = Self>:
+  # Attribute to automatically expand dimensions of this trait when implemented
+  attr (dim_expansion = 10) for Concat
+
+  ## Performs the '&' operation
+  func concat(Self self, Rhs rhs) -> Self*:
+    declare:
+      # New size is vector of two
+      Self[self.len()+rhs.len()-1:0] result
+    logic:
+      # Builtin source code
+      attr (builtin = "({0} & {1})") for concat
+      
+      # Return bogus value for FDL type and size checking
+      return result
+      
+  func concat(Self* self, Rhs rhs) -> Self*:
+    declare:
+      # New size is vector of two
+      Self[self.len():0] result
+    logic:
+      # Builtin source code
+      attr (builtin = "({0} & {1})") for concat
+      
+      # Return bogus value for FDL type and size checking
+      return result
+    
+  func concat(Self self, Rhs* rhs) -> Self*:
+    declare:
+      # New size is vector of two
+      Self[self.len()+rhs.len()-1:0] result
+    logic:
+      # Builtin source code
+      attr (builtin = "({0} & {1})") for concat
+      
+      # Return bogus value for FDL type and size checking
+      return result
+      

@@ -83,6 +83,8 @@ class BaseSymbol (object):
     self._imported   = False
     # Symbol was referenced in code, anywhere
     self._referenced = False
+    # Symbol is a template type
+    self._template   = False
     
   def isParameter(self):
     return self._parameter
@@ -104,6 +106,12 @@ class BaseSymbol (object):
     
   def rmReferenced(self):
     self._referenced = False
+    
+  def isTemplate(self):
+    return self._template
+    
+  def setTemplate(self):
+    self._template = True
     
   def getAST(self):
     return self.ast
@@ -233,7 +241,7 @@ class Field (object):
         
     # Field not found
     return None
-
+    
 # Define builtin type from YAML config
 class BuiltinTypeSymbol (BaseSymbol, SymbolTable, Params):
   def __init__(self, configDict, scopeLevel, encScope):
@@ -261,6 +269,25 @@ class ProcessSymbol (BaseSymbol, SymbolTable, Params):
       self.insert(ParamSymbol(node))
       
     self.verifyParamDecl()
+    
+class LibrarySymbol (BaseSymbol, SymbolTable):
+  def __init__(self, node, encScope):
+    BaseSymbol.__init__(self, node.name, 'library', node)
+    SymbolTable.__init__(self, node.name, encScope.scopeLevel+1, encScope)
+    self.nodes = []
+    
+class ModuleSymbol (BaseSymbol, SymbolTable):
+  def __init__(self, node, scopeLevel, encScope):
+    BaseSymbol.__init__(self, node.name, 'module', node)
+    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
+    self.arch  = []
+    self.gens  = []
+    self.ports = []
+    
+class ArchSymbol (BaseSymbol, SymbolTable):
+  def __init__(self, node, scopeLevel, encScope):
+    BaseSymbol.__init__(self, node.name, 'arch', node)
+    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
         
 # Define structure symbol for data consolidation
 class StructSymbol (BaseSymbol, SymbolTable, Params, Field):
@@ -276,6 +303,18 @@ class InterfaceSymbol (BaseSymbol, SymbolTable, Params, Field):
     SymbolTable.__init__(self, node.name, scopeLevel, encScope)
     Field.__init__(self)    
     
+# Define trait symbol for class interface definitions
+class TraitSymbol (BaseSymbol, SymbolTable, Params):
+  def __init__(self, node, scopeLevel, encScope):
+    BaseSymbol.__init__(self, node.name, 'type', node)
+    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
+
+# Define implement symbol for class interface implementation
+class ImplSymbol (BaseSymbol, SymbolTable, Params):
+  def __init__(self, node, scopeLevel, encScope):
+    BaseSymbol.__init__(self, node.name, 'type', node)
+    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
+
 # Define user defined function symbol
 class FuncSymbol (BaseSymbol, SymbolTable, Params):
   def __init__(self, node, scopeLevel, encScope):
@@ -505,21 +544,3 @@ class SignalSymbol (BaseSymbol):
     return True
     
 
-class LibrarySymbol (BaseSymbol, SymbolTable):
-  def __init__(self, node, encScope):
-    BaseSymbol.__init__(self, node.name, 'library', node)
-    SymbolTable.__init__(self, node.name, encScope.scopeLevel+1, encScope)
-    self.nodes = []
-    
-class ModuleSymbol (BaseSymbol, SymbolTable):
-  def __init__(self, node, scopeLevel, encScope):
-    BaseSymbol.__init__(self, node.name, 'module', node)
-    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
-    self.arch  = []
-    self.gens  = []
-    self.ports = []
-    
-class ArchSymbol (BaseSymbol, SymbolTable):
-  def __init__(self, node, scopeLevel, encScope):
-    BaseSymbol.__init__(self, node.name, 'arch', node)
-    SymbolTable.__init__(self, node.name, scopeLevel, encScope)

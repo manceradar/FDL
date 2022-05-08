@@ -378,8 +378,8 @@ for ind in 0 to 3 generate
   DelayInst : Delay(behaviour)
     port map(
       CLK => CLK,
-      A   => sig1,
-      B   => sig2
+      A   => sig1(ind),
+      B   => sig2(ind)
     );
 end generate;
 ```
@@ -388,8 +388,8 @@ end generate;
 
 ###FDL
 ```
-enum arb_state = [zero,one,two,three]
-arb_state curState = 0
+enum arb_state = (zero,one,two,three)
+arb_state curState = zero
 bit[3:0] output = 4{'0'}
 
 spro(clk,rst):
@@ -570,6 +570,18 @@ signal reg1 : std_logic_vector(7 downto 0) := (7 downto 1 => '0', others =>  '1'
 signal reg2 : std_logic_array(0 to 7)(15 downto 0) := (others=>(others=>'0'));
 ```
 
+###FDL
+```
+bit[7:0] reg1 = 8{'0'}
+bit[0:7][15:0] reg2 = [others=[others='0']]
+```
+
+###VHDL
+```vhdl
+
+```
+
+
 ## Structure declaration
 
 ###FDL
@@ -697,25 +709,26 @@ library busLib:
   # Notice scope in simpleBus
   uint addr_width = 12
   
-  # Always assumed to be master
+  # Simple interface definition
   interface simpleBus(uint width):
-    bit[width-1:0]       out data
-    bit[addr_width-1:0]  out addr
-    bit                  in  ready
-    bit                  out valid
+    bit[width-1:0]       producer data
+    bit[addr_width-1:0]  producer addr
+    bit                  consumer ready
+    bit                  producer valid
     
   interface spi3:
-    bit out   sclk
-    bit inout sdio
-    bit out   cs_n
+    bit producer sclk
+    bit producer sdi
+    bit consumer sdo
+    bit producer cs_n
     
 module SPIMaster:
   generic:
     uint w = 8
   ports:
-    bit          in     clk
-    simpleBus(w) slave  dataBus
-    spi3         master spiBus
+    bit          in       clk
+    simpleBus(w) consumer dataBus
+    spi3         producer spiBus
 ```
 
 ###VHDL
@@ -729,14 +742,15 @@ entity SPIMaster is
     W   : natural := 8
   );
   port(
-    CLK           : in    std_logic;
-    DATABUS_DATA  : in    std_logic_vector(W-1 downto 0);
-    DATABUS_ADDR  : in    std_logic_vector(11 downto 0);
-    DATABUS_READY : out   std_logic;
-    DATABUS_VALID : in    std_logic;
-    SPI3_SCLK     : out   std_logic;
-    SPI3_SDIO     : inout std_logic;
-    SPI3_CS_N     : out   std_logic
+    CLK           : in  std_logic;
+    DATABUS_DATA  : in  std_logic_vector(W-1 downto 0);
+    DATABUS_ADDR  : in  std_logic_vector(11 downto 0);
+    DATABUS_READY : out std_logic;
+    DATABUS_VALID : in  std_logic;
+    SPI3_SCLK     : out std_logic;
+    SPI3_SDI      : out std_logic;
+    SPI3_SDO      : in  std_logic;
+    SPI3_CS_N     : out std_logic
   );
 end SPIMaster;
-```cd
+```

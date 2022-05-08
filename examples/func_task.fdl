@@ -1,6 +1,8 @@
-#import vhdl_base.stages
+#! Test1
+#! Test2
+#! Test3
 
-module VariableDelay:
+module ffobar:
   generics:
     uint stages = 8
   ports:
@@ -13,17 +15,13 @@ module VariableDelay:
     uint(8) in  sel
     bit     out dout
 
-arch fdl for VariableDelay:
+arch fdl for ffobar:
   declare:
     # Shift register
     bit[stages]  reg = x'00'
     attr (foo = 10, bar = stuff) for reg
 
   logic:
- 
-    spro(clk,rst):
-      if (en == '1'):
-        reg  = reg[stages-1:2] & din
       
-    dout = reg[sel]
+    (foo, bar) = boop()
       

@@ -2,7 +2,6 @@
 
 ## Syntax Parser
 - [x] Add assert, log, warning, error statements
-- [ ] Add view to interfaces
 - [ ] Module instatiation
 - [ ] If define in module ports
 - [ ] Add type as parameter input

@@ -3,8 +3,10 @@
 ```
 bit - values ['0','1','Z','X','L','H','-']
 bool - values [True, False]
-sint(integer numBits) - values [integer]
 uint(integer numBits) - values [integer]
+sint(integer numBits) - values [integer]
+ufix(uint wholeBits, uint fixedBits) - values [integer,float]
+sfix(uint wholeBits, uint fixedBits) - values [integer,float]
 float - values [float]
 str - values [string]
 enum - values [string]
@@ -22,11 +24,18 @@ producer
 consumer
 
 # Type Attributes
-dim()                  # Returns integer of number of dimensions
-left(integer dim=0)    # Returns integer of left index of dimension 'dim'
-right(integer dim=0)   # Returns integer of right index of dimension 'dim'
-range(integer dim=0)   # Returns list of integers over dimension 'dim'
-length(integer dim=0)  # Returns integer of length of dimension 'dim'
+dim()                    # Returns integer of number of dimensions
+left(uint dim=0)         # Returns integer of left index of dimension 'dim'
+right(uint dim=0)        # Returns integer of right index of dimension 'dim'
+range(uint dim=0)        # Returns list of integers over dimension 'dim'
+length(uint dim=0)       # Returns integer of length of dimension 'dim'
+ascending(uint dim=0)    # Returns integer of length of dimension 'dim'
+valStr()                 # Returns string of value
+typeStr()                # Returns string of data type name
+
+# Struct Attributes
+toBits()                 # Returns bit vector serialized.
+fromBits(bit* x)         # Deserialize bit vector and assigns to itself
 
 # Built-in VHDL Functions
 bit not(bit arg)

@@ -1,0 +1,28 @@
+# Struct and implementation example
+
+struct cool<T>:
+  T   payload
+  bit valid
+  
+  
+impl cool<T>:
+  function is_ready(bit ready) -> bit:
+    logic:
+      return self.valid and (not ready)
+      
+  function stuff() -> bit:
+    declare:
+      bit dummy = '0'
+    logic:
+      dummy = is_ready()
+      return dummy
+      
+  task bar(bit clk) -> (T, bit):
+    declare:
+      T stuff
+    logic:
+      spro(clk):
+        stuff = self.payload
+      
+      return (stuff, self.valid)
+

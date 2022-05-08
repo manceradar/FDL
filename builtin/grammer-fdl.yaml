@@ -3,6 +3,10 @@ author: Aaron Woody
 
 #Tokens are checked in order of entry, it matters!!!
 tokens:
+  - regex:   '#\!.*'
+    type:    COMMENT_HEADER
+  - regex:   '##.*'
+    type:    COMMENT_FMT
   - regex:   '#.*'
     type:    COMMENT
   - regex:   "x'[0-9a-fA-F]+'"
@@ -13,7 +17,7 @@ tokens:
     type:    STRING
   - regex:   '(True|False)'
     type:    BOOLEAN
-  - regex:   '[a-zA-Z][a-zA-Z0-9_]*'
+  - regex:   '[a-zA-Z_][a-zA-Z0-9_]*'
     type:    ID
   - regex:   '[0-9]+\.[0-9]*'
     type:    FLOAT
@@ -37,6 +41,10 @@ tokens:
     type:    COMMA
   - regex:   '\.'
     type:    DOT
+  - regex:   '\|'
+    type:    OR_BAR
+  - regex:   '\-\>'
+    type:    RARROW
   - regex:   '\^'
     type:    EXP_OPER
   - regex:   '(\+\+|--)'
@@ -45,10 +53,16 @@ tokens:
     type:    CMPD_ARITH_ASSIGN
   - regex:   '(&=|\|=)'
     type:    CMPD_LOGICAL_ASSIGN
-  - regex:   '(==|\!=|\>=|\<=|\>|\<)'
+  - regex:   '\>'
+    type:    GT
+  - regex:   '\<'
+    type:    LT
+  - regex:   '(==|\!=|\>=|\<=)'
     type:    RELATION_OPER
-  - regex:   '(\+|-)'
-    type:    ADD_SUB_OPER
+  - regex:   '\+'
+    type:    ADD_OPER
+  - regex:   '-'
+    type:    SUB_OPER
   - regex:   '\*'
     type:    STAR
   - regex:   '/'
@@ -62,12 +76,18 @@ tokens:
 keywords:
   - regex:   import
     type:    IMPORT
+  - regex:   as
+    type:    AS
   - regex:   library
     type:    LIBRARY
-  - regex:   function
-    type:    FUNCTION
+  - regex:   func
+    type:    FUNC
   - regex:   enum
     type:    ENUM
+  - regex:   struct
+    type:    STRUCT
+  - regex:   interface
+    type:    INTERFACE
   - regex:   module
     type:    MODULE
   - regex:   blackbox
@@ -78,10 +98,12 @@ keywords:
     type:    PORTS
   - regex:   'in|out|inout'
     type:    BASE_INTERFACE
-  - regex:   'master|slave'
+  - regex:   'producer|consumer'
     type:    EXT_INTERFACE
   - regex:   arch
     type:    ARCH
+  - regex:   task
+    type:    TASK
   - regex:   declare
     type:    DECLARE
   - regex:   logic
@@ -90,18 +112,14 @@ keywords:
     type:    RENAME
   - regex:   for
     type:    FOR
+  - regex:   continue
+    type:    CONTINUE
   - regex:   case
     type:    CASE
-  - regex:   struct
-    type:    STRUCT
-  - regex:   interface
-    type:    INTERFACE
   - regex:   const
     type:    CONST
   - regex:   'and|nand|or|nor|xor|xnor'
     type:    LOGICAL_OPER
-  - regex:   'sll|srl|sla|sra|rol|ror'
-    type:    SHIFT_OPER
   - regex:   'mod|rem'
     type:    MOD_REM_OPER
   - regex:   not
@@ -130,6 +148,16 @@ keywords:
     type:    WARNING
   - regex:   error
     type:    ERROR
+  - regex:   trait
+    type:    TRAIT 
+  - regex:   impl
+    type:    IMPL
+  - regex:   self
+    type:    SELFVALUE
+  - regex:   Self
+    type:    SELFTYPE
+  - regex:   attr
+    type:    ATTR
     
     
 #----------------------------------
@@ -141,37 +169,37 @@ types:
     paramTypeName: []
     paramTypeDim: []
     paramValue: []
+  - name: bool
+    paramName: []
+    paramTypeName: []
+    paramTypeDim: []
+    paramValue: []
   - name: sint
     paramName: [bitWidth]
-    paramTypeName: [sint]
+    paramTypeName: [uint]
     paramTypeDim: [0]
     paramValue: [32]
   - name: uint
     paramName: [bitWidth]
-    paramTypeName: [sint]
+    paramTypeName: [uint]
     paramTypeDim: [0]
     paramValue: [32]
+  - name: sfix
+    paramName: [wholeBits, fracBits]
+    paramTypeName: [uint, uint]
+    paramTypeDim: [0, 0]
+    paramValue: []
+  - name: ufix
+    paramName: [wholeBits, fracBits]
+    paramTypeName: [uint, uint]
+    paramTypeDim: [0, 0]
+    paramValue: []
   - name: float
     paramName: []
     paramTypeName: []
     paramTypeDim: []
     paramValue: []
   - name: str
-    paramName: []
-    paramTypeName: []
-    paramTypeDim: []
-    paramValue: []
-  - name: bool
-    paramName: []
-    paramTypeName: []
-    paramTypeDim: []
-    paramValue: []
-  - name: time
-    paramName: []
-    paramTypeName: []
-    paramTypeDim: []
-    paramValue: []
-  - name: freq
     paramName: []
     paramTypeName: []
     paramTypeDim: []
@@ -183,46 +211,39 @@ types:
 attr:
   - name: len
     paramName: [dim]
-    paramTypeName: [sint]
+    paramTypeName: [uint]
     paramTypeDim: [0]
     paramValue: [0]
-    returnTypeName: [sint]
+    returnTypeName: [uint]
     returnTypeDim: [0]
   - name: left
     paramName: [dim]
-    paramTypeName: [sint]
+    paramTypeName: [uint]
     paramTypeDim: [0]
     paramValue: [0]
-    returnTypeName: [sint]
+    returnTypeName: [uint]
     returnTypeDim: [0]
   - name: right
     paramName: [dim]
-    paramTypeName: [sint]
+    paramTypeName: [uint]
     paramTypeDim: [0]
     paramValue: [0]
-    returnTypeName: [sint]
-    returnTypeDim: [0]
-  - name: low
-    paramName: [dim]
-    paramTypeName: [sint]
-    paramTypeDim: [0]
-    paramValue: [0]
-    returnTypeName: [sint]
-    returnTypeDim: [0]
-  - name: high
-    paramName: [dim]
-    paramTypeName: [sint]
-    paramTypeDim: [0]
-    paramValue: [0]
-    returnTypeName: [sint]
+    returnTypeName: [uint]
     returnTypeDim: [0]
   - name: range
     paramName: [dim]
-    paramTypeName: [sint]
+    paramTypeName: [uint]
     paramTypeDim: [0]
     paramValue: [0]
-    returnTypeName: [sint, sint, sint]
+    returnTypeName: [uint, uint, uint]
     returnTypeDim: [0, 0, 0]
+  - name: ascending
+    paramName: [dim]
+    paramTypeName: [uint]
+    paramTypeDim: [0]
+    paramValue: [0]
+    returnTypeName: [bool]
+    returnTypeDim: [0]
   - name: valStr
     paramName: []
     paramTypeName: []
@@ -237,67 +258,11 @@ attr:
     paramValue: []
     returnTypeName: [str]
     returnTypeDim: [0]
-  - name: ascending
-    paramName: [dim]
-    paramTypeName: [sint]
-    paramTypeDim: [0]
-    paramValue: [0]
-    returnTypeName: [bool]
-    returnTypeDim: [0]
     
 #----------------------------------
-# Builtin attributes
+# Builtin functions
 #----------------------------------
-func:
-  - name: not
-    paramName: [left]
-    paramTypeName: [bit]
-    paramTypeDim: [0]
-    paramValue: [None]
-    returnTypeName: [bit]
-    returnTypeDim: [0]
-  - name: and
-    paramName: [left, right]
-    paramTypeName: [bit, bit]
-    paramTypeDim: [0, 0]
-    paramValue: [None, None]
-    returnTypeName: [bit]
-    returnTypeDim: [0]
-  - name: nand
-    paramName: [left, right]
-    paramTypeName: [bit, bit]
-    paramTypeDim: [0, 0]
-    paramValue: [None, None]
-    returnTypeName: [bit]
-    returnTypeDim: [0]
-  - name: or
-    paramName: [left, right]
-    paramTypeName: [bit, bit]
-    paramTypeDim: [0, 0]
-    paramValue: [None, None]
-    returnTypeName: [bit]
-    returnTypeDim: [0]
-  - name: nor
-    paramName: [left, right]
-    paramTypeName: [bit, bit]
-    paramTypeDim: [0, 0]
-    paramValue: [None, None]
-    returnTypeName: [bit]
-    returnTypeDim: [0]
-  - name: xor
-    paramName: [left, right]
-    paramTypeName: [bit, bit]
-    paramTypeDim: [0, 0]
-    paramValue: [None, None]
-    returnTypeName: [bit]
-    returnTypeDim: [0]
-  - name: xnor
-    paramName: [left, right]
-    paramTypeName: [bit, bit]
-    paramTypeDim: [0, 0]
-    paramValue: [None, None]
-    returnTypeName: [bit]
-    returnTypeDim: [0]
+
       
 vhdl:
   fdlHeader: |
