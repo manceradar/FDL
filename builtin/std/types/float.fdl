@@ -1,0 +1,71 @@
+#! Float type header
+## Implementations for all built in functions
+
+import std.fmt
+import std.ops.arith
+import std.ops.bitwise
+import std.ops.cmp
+import std.ops.concat
+
+# String format
+impl fmt.Fmt for float:
+  # Convert to string
+  func str(Self self, str formatspec = "%f") -> str:
+    declare:
+      # String
+      str result
+    logic:
+      # Call builtin vhdl string formatter
+      attr (builtin = "strfmt({0}, {1})") for vhdl_93
+      
+      # Return bogus value for FDL type and size checking
+      return result
+
+# Implementations for converting
+impl float:
+  ## Convert to boolean type
+  func to_bit(Self self) -> bit*:
+    declare:
+      bit[self.len()] result
+    logic:
+      # Builtin source code
+      attr (builtin = "std_logic_vector({0})") for vhdl_93
+      
+      # Return bogus value for FDL type and size checking
+      return result
+      
+  ## Convert to uint type
+  func to_sint(Self self) -> uint:
+    declare:
+      uint(self.len()) result
+    logic:
+      # Builtin source code
+      attr (builtin = "signed({0})") for vhdl_93
+      
+      # Return bogus value for FDL type and size checking
+      return result
+      
+  ## Convert to float type
+  func to_float(Self self) -> uint:
+    declare:
+      float result
+    logic:
+      # Builtin source code
+      attr (builtin = "real(to_integer({0}))") for vhdl_93
+      
+      # Return bogus value for FDL type and size checking
+      return result
+
+# Concatenation
+impl Concat for uint
+
+# sint to sint bit operators
+impl Not for uint:
+  func not(Self self) -> Self:
+    logic:
+      # Builtin source code
+      attr (builtin = "not({0})") for vhdl_93
+      
+      # Return bogus value for FDL type and size checking
+      return self
+    

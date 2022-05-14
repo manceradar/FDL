@@ -1,22 +1,10 @@
 #! Bool type header
 ## Implementations for all built in functions
 
+import std.fmt
 import std.ops.bitwise
 import std.ops.concat
 
-# Implementations for converting
-impl bool:
-  ## Convert to boolean type
-  func to_bit(Self self) -> bit:
-    declare:
-      bit result
-    logic:
-      # Builtin source code
-      attr (builtin = "bool_to_bit({0})") for vhdl_93
-      
-      # Return bogus value for FDL type and size checking
-      return result
-  
 # String format
 impl fmt.Fmt for bool:
   # Convert to string
@@ -31,8 +19,18 @@ impl fmt.Fmt for bool:
       # Return bogus value for FDL type and size checking
       return result
 
-# Concatenation
-impl Concat for bool
+# Implementations for converting
+impl bool:
+  ## Convert to boolean type
+  func to_bit(Self self) -> bit:
+    declare:
+      bit result
+    logic:
+      # Builtin source code
+      attr (builtin = "bool_to_bit({0})") for vhdl_93
+      
+      # Return bogus value for FDL type and size checking
+      return result
 
 # Bool to bool operators
 impl Not for bool:
@@ -188,3 +186,6 @@ impl OrAssign<bit> for bool:
       
       # Return bogus value for FDL type and size checking
       return self
+      
+# Concatenation
+impl Concat for bool
