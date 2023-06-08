@@ -16,7 +16,7 @@ impl fmt.Fmt for uint:
       str result
     logic:
       # Call builtin vhdl string formatter
-      attr (builtin = "strfmt({0}, {1})") for vhdl_93
+      attr +(vhdl = "strfmt({0}, {1})")
       
       # Return bogus value for FDL type and size checking
       return result
@@ -29,7 +29,7 @@ impl uint:
       bit[self.len()] result
     logic:
       # Builtin source code
-      attr (builtin = "std_logic_vector({0})") for vhdl_93
+      attr +(vhdl = "std_logic_vector({0})")
       
       # Return bogus value for FDL type and size checking
       return result
@@ -40,7 +40,7 @@ impl uint:
       uint(self.len()) result
     logic:
       # Builtin source code
-      attr (builtin = "signed({0})") for vhdl_93
+      attr +(vhdl = "signed({0})")
       
       # Return bogus value for FDL type and size checking
       return result
@@ -51,25 +51,22 @@ impl uint:
       float result
     logic:
       # Builtin source code
-      attr (builtin = "real(to_integer({0}))") for vhdl_93
+      attr +(vhdl = "real(to_integer({0}))")
       
       # Return bogus value for FDL type and size checking
       return result
 
-# Concatenation
-impl Concat for uint
-
 # sint to sint bit operators
-impl Not for uint:
+impl bitwise.Not for uint:
   func not(Self self) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "not({0})") for vhdl_93
+      attr +(vhdl = "not({0})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl And for uint:
+impl bitwise.And for uint:
   func and(Self self, Self rhs) -> Self:
     logic:
       # Ensure vectors are same length
@@ -77,12 +74,12 @@ impl And for uint:
         error("and function lengths do not match")
         
       # Builtin source code
-      attr (builtin = "({0} and {1})") for vhdl_93
+      attr +(vhdl = "({0} and {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Or for uint:
+impl bitwise.Or for uint:
   func or(Self self, Self rhs) -> Self:
     logic:
       # Ensure vectors are same length
@@ -90,12 +87,12 @@ impl Or for uint:
         error("or function lengths do not match")
         
       # Builtin source code
-      attr (builtin = "({0} or {1})") for vhdl_93
+      attr +(vhdl = "({0} or {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Xor for uint:
+impl bitwise.Xor for uint:
   func xor(Self self, Self rhs) -> Self:
     logic:
       # Ensure vectors are same length
@@ -103,12 +100,12 @@ impl Xor for uint:
         error("xor function lengths do not match")
         
       # Builtin source code
-      attr (builtin = "({0} xor {1})") for vhdl_93
+      attr +(vhdl = "({0} xor {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Nand for uint:
+impl bitwise.Nand for uint:
   func nand(Self self, Self rhs) -> Self:
     logic:
       # Ensure vectors are same length
@@ -116,12 +113,12 @@ impl Nand for uint:
         error("nand function lengths do not match")
         
       # Builtin source code
-      attr (builtin = "({0} nand {1})") for vhdl_93
+      attr +(vhdl = "({0} nand {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Nor for uint:
+impl bitwise.Nor for uint:
   func nor(Self self, Self rhs) -> Self:
     logic:
       # Ensure vectors are same length
@@ -129,12 +126,12 @@ impl Nor for uint:
         error("nor function lengths do not match")
         
       # Builtin source code
-      attr (builtin = "({0} nor {1})") for vhdl_93
+      attr +(vhdl = "({0} nor {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Xnor for uint:
+impl bitwise.Xnor for uint:
   func xnor(Self self, Self rhs) -> Self:
     logic:
       # Ensure vectors are same length
@@ -142,12 +139,12 @@ impl Xnor for uint:
         error("xnor function lengths do not match")
         
       # Builtin source code
-      attr (builtin = "({0} xnor {1})") for vhdl_93
+      attr +(vhdl = "({0} xnor {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl AndAssign for uint:
+impl bitwise.AndAssign for uint:
   func and_assign(Self self, Self rhs) -> Self:
     logic:
       # Ensure vectors are same length
@@ -155,12 +152,12 @@ impl AndAssign for uint:
         error("and_assign function lengths do not match")
       
       # Builtin source code
-      attr (builtin = "{0} <= ({0} and {1})") for vhdl_93
+      attr +(vhdl = "{0} <= ({0} and {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl OrAssign for uint:
+impl bitwise.OrAssign for uint:
   func or_assign(Self self, Self rhs) -> Self:
     logic:
       # Ensure vectors are same length
@@ -168,67 +165,67 @@ impl OrAssign for uint:
         error("or_assign function lengths do not match")
         
       # Builtin source code
-      attr (builtin = "{0} <= ({0} or {1})") for vhdl_93
+      attr +(vhdl = "{0} <= ({0} or {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
 # sint to sint arith operators
-impl Pos for uint:
+impl arith.Pos for uint:
   func pos(Self self) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "+({0})") for vhdl_93
+      attr +(vhdl = "+({0})")
       
       # Return bogus value for FDL type and size checking
       return self
       
-impl Abs for uint:
+impl arith.Abs for uint:
   func neg(Self self) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "{0}") for vhdl_93
+      attr +(vhdl = "{0}")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Add for uint:
+impl arith.Add for uint:
   func add(Self self, Self rhs) -> Self:
     declare:
       # Length is dependent on vector size
       Self(max(self.len(), rhs.len())) result
     logic:
       # Builtin source code
-      attr (builtin = "({0} + {1})") for vhdl_93
+      attr +(vhdl = "({0} + {1})")
       
       # Return bogus value for FDL type and size checking
       return result
     
-impl Sub for uint:
+impl arith.Sub for uint:
   func sub(Self self, Self rhs) -> Self:
     declare:
       # Length is dependent on vector size
       Self(max(self.len(), rhs.len())) result
     logic:
       # Builtin source code
-      attr (builtin = "({0} - {1})") for vhdl_93
+      attr +(vhdl = "({0} - {1})")
       
       # Return bogus value for FDL type and size checking
       return result
     
-impl Mul for uint:
+impl arith.Mul for uint:
   func mul(Self self, Self rhs) -> Self:
     declare:
       # Length is dependent on vector size
       Self(max(self.len(), rhs.len())) result
     logic:
       # Builtin source code
-      attr (builtin = "({0} * {1})") for vhdl_93
+      attr +(vhdl = "({0} * {1})")
       
       # Return bogus value for FDL type and size checking
       return result
       
-impl Div for uint:
+impl arith.Div for uint:
   func div(Self self, Self rhs) -> Self:
     declare:
       # Length is dependent on vector size
@@ -239,67 +236,67 @@ impl Div for uint:
         error("div function right operand is zero")
         
       # Builtin source code
-      attr (builtin = "({0} / {1})") for vhdl_93
+      attr +(vhdl = "({0} / {1})")
       
       # Return bogus value for FDL type and size checking
       return result
       
-impl Mod for uint:
+impl arith.Mod for uint:
   func mod(Self self, Self rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} mod {1})") for vhdl_93
+      attr +(vhdl = "({0} mod {1})")
       
       # Return bogus value for FDL type and size checking
       return rhs
       
-impl Rem for uint:
+impl arith.Rem for uint:
   func rem(Self self, Self rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} rem {1})") for vhdl_93
+      attr +(vhdl = "({0} rem {1})")
       
       # Return bogus value for FDL type and size checking
       return rhs
       
     
-impl AddAssign for uint:
+impl arith.AddAssign for uint:
   func add_assign(Self self, Self rhs) -> Self:
     declare:
       # Length is dependent on vector size
       Self(max(self.len(), rhs.len())) result
     logic:
       # Builtin source code
-      attr (builtin = "{0} <= ({0} + {1})") for vhdl_93
+      attr +(vhdl = "{0} <= ({0} + {1})")
       
       # Return bogus value for FDL type and size checking
       return result
       
-impl SubAssign for uint:
+impl arith.SubAssign for uint:
   func sub_assign(Self self, Self rhs) -> Self:
     declare:
       # Length is dependent on vector size
       Self(max(self.len(), rhs.len())) result
     logic:
       # Builtin source code
-      attr (builtin = "{0} <= ({0} - {1})") for vhdl_93
+      attr +(vhdl = "{0} <= ({0} - {1})")
       
       # Return bogus value for FDL type and size checking
       return result
     
-impl MulAssign for uint:
+impl arith.MulAssign for uint:
   func mul_assign(Self self, Self rhs) -> Self:
     declare:
       # Length is dependent on vector size
       Self(max(self.len(), rhs.len())) result
     logic:
       # Builtin source code
-      attr (builtin = "{0} <= ({0} * {1})") for vhdl_93
+      attr +(vhdl = "{0} <= ({0} * {1})")
       
       # Return bogus value for FDL type and size checking
       return result
       
-impl DivAssign for uint:
+impl arith.DivAssign for uint:
   func div_assign(Self self, Self rhs) -> Self:
     declare:
       # Length is dependent on vector size
@@ -310,96 +307,99 @@ impl DivAssign for uint:
         error("div function right operand is zero")
         
       # Builtin source code
-      attr (builtin = "{0} <= ({0} / {1})") for vhdl_93
+      attr +(vhdl = "{0} <= ({0} / {1})")
       
       # Return bogus value for FDL type and size checking
       return result
       
-impl PostIncr for uint:
+impl arith.PostIncr for uint:
   func post_incr(Self self) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "{0} <= ({0} + 1)") for vhdl_93
+      attr +(vhdl = "{0} <= ({0} + 1)")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl PostDecr for uint:
+impl arith.PostDecr for uint:
   func post_decr(Self self) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "{0} <= ({0} - 1)") for vhdl_93
+      attr +(vhdl = "{0} <= ({0} - 1)")
       
       # Return bogus value for FDL type and size checking
       return self
       
 # sint to sint comparison operators
-impl Eq for uint:
-  func eq(Self self, Self rhs) -> bool
+impl cmp.Eq for uint:
+  func eq(Self self, Self rhs) -> bool:
     declare:
       # return boolean
       bool result
     logic:
       # Builtin source code
-      attr (builtin = "({0} = {1})") for vhdl_93
+      attr +(vhdl = "({0} = {1})")
       
       # Return bogus value for FDL type and size checking
       return result
       
-  func ne(Self self, Self rhs) -> bool
+  func ne(Self self, Self rhs) -> bool:
     declare:
       # return boolean
       bool result
     logic:
       # Builtin source code
-      attr (builtin = "({0} /= {1})") for vhdl_93
+      attr +(vhdl = "({0} /= {1})")
       
       # Return bogus value for FDL type and size checking
       return result
       
-impl Ord for uint:
-  func gt(Self self, Self rhs) -> bool
+impl cmp.Ord for uint:
+  func gt(Self self, Self rhs) -> bool:
     declare:
       # return boolean
       bool result
     logic:
       # Builtin source code
-      attr (builtin = "({0} > {1})") for vhdl_93
+      attr +(vhdl = "({0} > {1})")
       
       # Return bogus value for FDL type and size checking
       return result
 
-  func lt(Self self, Self rhs) -> bool
+  func lt(Self self, Self rhs) -> bool:
     declare:
       # return boolean
       bool result
     logic:
       # Builtin source code
-      attr (builtin = "({0} < {1})") for vhdl_93
+      attr +(vhdl = "({0} < {1})")
       
       # Return bogus value for FDL type and size checking
       return result
       
-  func gteq(Self self, Self rhs) -> bool
+  func gteq(Self self, Self rhs) -> bool:
     declare:
       # return boolean
       bool result
     logic:
       # Builtin source code
-      attr (builtin = "({0} >= {1})") for vhdl_93
+      attr +(vhdl = "({0} >= {1})")
       
       # Return bogus value for FDL type and size checking
       return result
       
-  func lteq(Self self, Self rhs) -> bool
+  func lteq(Self self, Self rhs) -> bool:
     declare:
       # return boolean
       bool result
     logic:
       # Builtin source code
-      attr (builtin = "({0} <= {1})") for vhdl_93
+      attr +(vhdl = "({0} <= {1})")
       
       # Return bogus value for FDL type and size checking
       return result
       
-trait Cmp for uint
+impl cmp.Cmp for uint
+
+# Concatenation
+impl concat.Concat for uint

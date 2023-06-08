@@ -30,7 +30,6 @@ right(uint dim=0)        # Returns integer of right index of dimension 'dim'
 range(uint dim=0)        # Returns list of integers over dimension 'dim'
 length(uint dim=0)       # Returns integer of length of dimension 'dim'
 ascending(uint dim=0)    # Returns integer of length of dimension 'dim'
-valStr()                 # Returns string of value
 typeStr()                # Returns string of data type name
 
 # Struct Attributes

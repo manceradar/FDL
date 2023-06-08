@@ -11,17 +11,17 @@ tokens:
     type:    COMMENT
   - regex:   "x'[0-9a-fA-F]+'"
     type:    BIT_INIT_HEX
-  - regex:   "b?'[01ZXLH-]+'"
+  - regex:   "b?'[01ZXLH-_]+'"
     type:    BIT_INIT_BIN
   - regex:   '\"([^"]|\\\")*\"'
     type:    STRING
   - regex:   '(True|False)'
     type:    BOOLEAN
-  - regex:   '[a-zA-Z_][a-zA-Z0-9_]*'
+  - regex:   '[a-zA-Z][a-zA-Z0-9_]*(\@|\!)?'
     type:    ID
-  - regex:   '[0-9]+\.[0-9]*'
+  - regex:   '[0-9][0-9_]*\.[0-9][0-9_]*([eE][+-]?[0-9_]+)?'
     type:    FLOAT
-  - regex:   '[0-9]+'
+  - regex:   '[0-9][0-9_]*'
     type:    INTEGER
   - regex:   '\('
     type:    LPAREN
@@ -53,12 +53,12 @@ tokens:
     type:    CMPD_ARITH_ASSIGN
   - regex:   '(&=|\|=)'
     type:    CMPD_LOGICAL_ASSIGN
+  - regex:   '(==|\!=|\>=|\<=)'
+    type:    RELATION_OPER
   - regex:   '\>'
     type:    GT
   - regex:   '\<'
     type:    LT
-  - regex:   '(==|\!=|\>=|\<=)'
-    type:    RELATION_OPER
   - regex:   '\+'
     type:    ADD_OPER
   - regex:   '-'
@@ -165,99 +165,162 @@ keywords:
 #----------------------------------
 types:
   - name: bit
-    paramName: []
-    paramTypeName: []
-    paramTypeDim: []
-    paramValue: []
+    paramSym: []
   - name: bool
-    paramName: []
-    paramTypeName: []
-    paramTypeDim: []
-    paramValue: []
+    paramSym: []
   - name: sint
-    paramName: [bitWidth]
-    paramTypeName: [uint]
-    paramTypeDim: [0]
-    paramValue: [32]
+    paramSym:
+      - name: bitWidth
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+        value: 32
   - name: uint
-    paramName: [bitWidth]
-    paramTypeName: [uint]
-    paramTypeDim: [0]
-    paramValue: [32]
+    paramSym:
+      - name: bitWidth
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+        value: 32
   - name: sfix
-    paramName: [wholeBits, fracBits]
-    paramTypeName: [uint, uint]
-    paramTypeDim: [0, 0]
-    paramValue: []
+    paramSym:
+      - name: wholeBits
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+        value: None
+      - name: fracBits
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+        value: None
   - name: ufix
-    paramName: [wholeBits, fracBits]
-    paramTypeName: [uint, uint]
-    paramTypeDim: [0, 0]
-    paramValue: []
+    paramSym:
+      - name: wholeBits
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+        value: None
+      - name: fracBits
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+        value: None
   - name: float
-    paramName: []
-    paramTypeName: []
-    paramTypeDim: []
-    paramValue: []
+    paramSym: []
   - name: str
-    paramName: []
-    paramTypeName: []
-    paramTypeDim: []
-    paramValue: []
+    paramSym: []
     
 #----------------------------------
-# Builtin attributes
+# Builtin type function
 #----------------------------------
-attr:
+builtinMethod:
   - name: len
-    paramName: [dim]
-    paramTypeName: [uint]
-    paramTypeDim: [0]
-    paramValue: [0]
+    paramSym:
+      - name: dim
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+        value: 0
     returnTypeName: [uint]
     returnTypeDim: [0]
+    returnSym:
+      - name: len
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
   - name: left
-    paramName: [dim]
-    paramTypeName: [uint]
-    paramTypeDim: [0]
-    paramValue: [0]
+    paramSym:
+      - name: dim
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+        value: 0
     returnTypeName: [uint]
     returnTypeDim: [0]
+    returnSym:
+      - name: left
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
   - name: right
-    paramName: [dim]
-    paramTypeName: [uint]
-    paramTypeDim: [0]
-    paramValue: [0]
+    paramSym:
+      - name: dim
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+        value: 0
     returnTypeName: [uint]
     returnTypeDim: [0]
+    returnSym:
+      - name: right
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
   - name: range
-    paramName: [dim]
-    paramTypeName: [uint]
-    paramTypeDim: [0]
-    paramValue: [0]
+    paramSym:
+      - name: dim
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+        value: 0
     returnTypeName: [uint, uint, uint]
     returnTypeDim: [0, 0, 0]
+    returnSym:
+      - name: first
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+      - name: last
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+      - name: inc
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
   - name: ascending
-    paramName: [dim]
-    paramTypeName: [uint]
-    paramTypeDim: [0]
-    paramValue: [0]
+    paramSym:
+      - name: dim
+        typeName: uint
+        array: [[0,0]]
+        const: True
+        port: False
+        value: 0 
     returnTypeName: [bool]
     returnTypeDim: [0]
-  - name: valStr
-    paramName: []
-    paramTypeName: []
-    paramTypeDim: []
-    paramValue: []
-    returnTypeName: [str]
-    returnTypeDim: [0]
+    returnSym:
+      - name: isAsc
+        typeName: bool
+        array: [[0,0]]
+        const: True
+        port: False
   - name: typeStr
-    paramName: []
-    paramTypeName: []
-    paramTypeDim: []
-    paramValue: []
+    paramSym: []
     returnTypeName: [str]
     returnTypeDim: [0]
+    returnSym:
+      - name: typeStr
+        typeName: str
+        array: [[0,0]]
+        const: True
+        port: False
     
 #----------------------------------
 # Builtin functions
@@ -329,3 +392,4 @@ vhdl:
             {5}
           end if;
         end process;
+        

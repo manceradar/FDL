@@ -1,5 +1,7 @@
 from collections import OrderedDict
 
+from Lexer import Token
+
 class SymbolTable (object):
   def __init__(self,scopeName,scopeLevel,enclosingScope):
     # Initialize symbol table, it is list inside a dict.
@@ -9,42 +11,127 @@ class SymbolTable (object):
     self.scopeName      = scopeName
     self.scopeLevel     = scopeLevel
     self.enclosingScope = enclosingScope
+    
+    # Being inside implementation allows to replace Self with actual value
+    if enclosingScope is None:
+      self.impl        = False
+    else:
+      self.impl        = enclosingScope.impl
+      
+    # Being inside trait do not evaluate func/task definitions
+    if enclosingScope is None:
+      self.trait       = False
+    else:
+      self.trait       = enclosingScope.trait
+      
+    # Being inside module allows full type and array checks
+    if enclosingScope is None:
+      self.module       = False
+    else:
+      self.module       = enclosingScope.module
+    
+  # Used to determine if implemntation being used to convert types
+  def setImpl(self, value):
+    self.impl = value
+    
+  # Used to limit type checks in traits
+  def setTrait(self, value):
+    self.trait = value
+    
+  def setModule(self, value):
+    self.module = value
        
-  def insert(self, symbol):
+  def insert(self, symbol, lookupCheck=True):
     # Inserts symbol into table, and checks for replicas
     # Returns bool if it was inserted
     
     # Look up symbol name
-    lookupSym = self.lookup(symbol.name, symbol.type, False)
+    lookupSym = None
+    
+    # Dont check for imports
+    if lookupCheck:
+      lookupSym = self.lookup(symbol.name, symbol.type, printError=False)
     
     # Add symbol
     if (lookupSym is None):
       self._symbol[symbol.name] = (symbol.type, symbol)
+      print('insert:T({0},{1})'.format(symbol.name, symbol.type))
       return True
     else:
+      print('insert:F({0},{1})'.format(symbol.name, symbol.type))
       return False
+      
     
-  def lookup(self, name, type, printError=True):
+  def lookup(self, name, type, recursive=True, printError=True):
+    # If Token, get value to lookup
+    if isinstance(name, Token):
+      nameStr = name.value
+    else:
+      nameStr = name
+      
     # Look for type in current scope
-    symbolList = self._symbol.get(name)
+    symbolList = self._symbol.get(nameStr)
     
     if (symbolList is None):
       # Symbol not found, look in enclosing scope
       if (self.enclosingScope is None):
         # All scopes didnt find type
         if (printError):
-          print('Symbol Name "{0}", Type "{1}" not found'.format(name, type))
+          print('Symbol Name "{0}", Type "{1}" not found'.format(nameStr, type))
         return None
       else:
-        return self.enclosingScope.lookup(name, type, printError)
+        if recursive:
+          return self.enclosingScope.lookup(nameStr, type, printError=printError)
+        else:
+          return None
         
     else:
       # Symbol found, check if type exists
-      if (type == 'all'):
-        return symbolList[1]
-      elif (type == symbolList[0]):
-        # Return symbol for index
-        return symbolList[1]
+      if (isinstance(type, str)):
+        if (type == 'all'):
+          return symbolList[1]
+        elif (type == symbolList[0]):
+          # Return symbol for index
+          return symbolList[1]
+        else:
+          # Correct symbol name, wrong type
+          # Symbol not found, look in enclosing scope
+          if (self.enclosingScope is None):
+            # All scopes didnt find type
+            if (printError):
+              print('Symbol Name "{0}", Type "{1}" not found'.format(nameStr, type))
+            return None
+          else:
+            if recursive:
+              return self.enclosingScope.lookup(nameStr, type, printError=printError)
+            else:
+              return None
+          
+      elif (isinstance(type, list)):
+        if (symbolList[0] in type):
+          # Symbol name and type match, return symbol
+          return symbolList[1]
+        else:
+          # Correct symbol name, wrong type
+          # Symbol not found, look in enclosing scope
+          if (self.enclosingScope is None):
+            # All scopes didnt find type
+            if (printError):
+              print('Symbol Name "{0}", Type "{1}" not found'.format(nameStr, type))
+            return None
+          else:
+            if recursive:
+              return self.enclosingScope.lookup(nameStr, type, printError=printError)
+            else:
+              return None
+              
+  def returnSymbolList(self, typeLookup):
+    symList = []
+    for name,sym in iter(self._symbol.items()):
+      if (sym[0] in typeLookup):
+        symList.append(sym[1])
+          
+    return symList
         
   def returnParams(self):
     params = []
@@ -62,31 +149,86 @@ class SymbolTable (object):
         
   def status(self):
     # Plot header
-    width = 104
+    width = 120
     header = '|{0}|'.format('Scope Symbol Table'.center(width-2,' '))
     scopeDetail = '|{0}|'.format('Name: "{0}", Scope: {1}'.format(self.scopeName, self.scopeLevel).center(width-2,' '))
     lines = ['=' * width, header, scopeDetail]
     print('\n'.join(lines))
     
+    #self.statusFile(width)
     self.statusTypes(width)
+    self.statusGenerics(width)
     self.statusFunctions(width)
     self.statusAttributes(width)
+    self.statusLibrary(width, 'library')
+    self.statusLibrary(width, 'trait')
+    self.statusModules(width)
+    self.statusVariables(width)
       
     lines = []
-    linesLib = self.statusLibrary(width)
-    if (linesLib[0]):
-      lines += linesLib[1]
-      
-    linesMod = self.statusModules(width)
-    if (linesMod[0]):
-      lines += linesMod[1]
-      
-    linesVars = self.statusVariables(width)
-    if (linesVars[0]):
-      lines += linesVars[1]
-    
     lines.append('='*width)
     lines.append('')
+    print('\n'.join(lines))
+    
+  def statusFile(self, width):
+    # Initialize output
+    lines = []
+    
+    # Plot variables
+    numVars = 7
+    varWidth = int((width-2)/numVars)
+    leftOver = ' '*int(width - 2 - numVars*varWidth)
+    
+    # Create header
+    nameStr = 'Name'.ljust(varWidth,' ')
+    libStr = 'Lib.'.ljust(varWidth,' ')
+    traitStr = 'Trait'.ljust(varWidth,' ')
+    funcStr = 'Func.'.ljust(varWidth,' ')
+    varStr = 'Var.'.ljust(varWidth,' ')
+    taskStr = 'Task'.ljust(varWidth,' ')
+    typeStr = 'Types'.ljust(varWidth,' ')
+    lines.append('-'*width)
+    lines.append('|{0}|'.format('File'.center(width-2,' ')))
+    lines.append('-'*width)
+    lines.append('|{0}{1}{2}{3}{4}{5}{6}{7}|'.format(nameStr, libStr, traitStr, funcStr, varStr, taskStr, typeStr, leftOver))
+    lines.append('-'*width)
+    
+    # List variables
+    libNum   = 0
+    traitNum = 0
+    funcNum  = 0
+    varNum   = 0
+    taskNum  = 0
+    typeNum  = 0
+    for name,sym in iter(self._symbol.items()):
+      found = True
+      symbol = sym[1]
+      
+      for name,sym in iter(symbol._symbol.items()):
+        if (sym[0] is 'signal'):
+          varNum += 1
+        elif (sym[0] is 'trait'):
+          traitNum += 1
+        elif (sym[0] is 'library'):
+          libNum += 1
+        elif (sym[0] is 'function'):
+          funcNum += 1
+        elif (sym[0] is 'task'):
+          taskNum +=1
+        elif (sym[0] is 'type'):
+          typeNum +=1
+      
+    nameStr = symbol.name.ljust(varWidth,' ')
+    libStr = str(libNum).ljust(varWidth,' ')
+    traitStr = str(traitNum).ljust(varWidth,' ')
+    funcStr = str(funcNum).ljust(varWidth,' ')
+    varStr = str(varNum).ljust(varWidth,' ')
+    taskStr = str(taskNum).ljust(varWidth,' ')
+    typeStr = str(typeNum).ljust(varWidth,' ')
+    
+    libStr = '{0}{1}{2}{3}{4}{5}{6}{7}'.format(nameStr, libStr, traitStr, funcStr, varStr, taskStr, typeStr, leftOver)
+    lines.append('|{0}|'.format(libStr))
+        
     print('\n'.join(lines))
     
   def statusTypes(self, width):
@@ -117,6 +259,29 @@ class SymbolTable (object):
           
     if (found):
       print('\n'.join(tableLines))
+      
+  def statusGenerics(self, width):
+    # Create header
+    header = 'Generics'
+    nameList = ['Name']
+    boundList = ['Type Bounds']
+    defaultList = ['Default Type']
+    
+    # List types
+    found = False
+    for name,sym in iter(self._symbol.items()):
+      if sym[0] is 'generic':
+        found = True
+        symbol = sym[1]
+        boundListStr = ['{0}'.format(bound) for bound in symbol.typeBound]
+        nameList.append(symbol.name)
+        boundList.append(','.join(boundListStr))
+        defaultList.append(str(symbol.defaultType))
+        
+    tableLines = self.formatTable(header, width, nameList, boundList, defaultList)
+          
+    if (found):
+      print('\n'.join(tableLines))
     
   def statusFunctions(self, width):
     # Create header
@@ -124,7 +289,7 @@ class SymbolTable (object):
     nameList = ['Name']
     paramNameList = ['Param Name']
     paramTypeList = ['Param Type[Dim]']
-    synthList = ['Synth?']
+    defList = ['Definition']
     returnList = ['Return Type[Dim]']
     
     # List functions
@@ -149,11 +314,11 @@ class SymbolTable (object):
         nameList.append(symbol.name)
         paramNameList.append(','.join(paramName))
         paramTypeList.append(','.join(paramTypeDim))
-        synthList.append(str(symbol.synth))
+        defList.append(str(symbol.funcDef))
         returnList.append(','.join(returnTypeDim))
         
     tableLines = self.formatTable(header, width, nameList, paramNameList, 
-                                  paramTypeList, synthList, returnList)
+                                  paramTypeList, defList, returnList)
     
     if (found):
       print('\n'.join(tableLines))
@@ -162,9 +327,8 @@ class SymbolTable (object):
     # Create header
     header = 'Attributes'
     nameList = ['Name']
-    paramNameList = ['Param Name']
-    paramTypeList = ['Param Type[Dim]']
-    returnList = ['Return Type[Dim]']
+    valueList = ['Value']
+    typeList = ['Type']
     
     # List functions
     found = False
@@ -172,57 +336,48 @@ class SymbolTable (object):
       if sym[0] is 'attr':
         found = True
         symbol = sym[1]
-        params = symbol.returnParams()
-        
-        paramName = []
-        for param in params:
-          if param.value is None:
-            paramName.append(param.name)
-          else:
-            paramName.append('{0}={1}'.format(param.name, param.value))
-        paramTypeDim = ['{0}[{1}]'.format(param.typeName, param.typeDim) for param in params]
-        
-        numReturnVars = len(symbol.returnTypeName)
-        returnTypeDim = ['{0}[{1}]'.format(symbol.returnTypeName[x], symbol.returnTypeDim[x]) for x in range(numReturnVars)]
         
         nameList.append(symbol.name)
-        paramNameList.append(','.join(paramName))
-        paramTypeList.append(','.join(paramTypeDim))
-        returnList.append(','.join(returnTypeDim))
+        valueList.append(symbol.value.value)
+        typeList.append(symbol.attrType)
         
-    tableLines = self.formatTable(header, width, nameList, paramNameList, 
-                                  paramTypeList, returnList)
+    tableLines = self.formatTable(header, width, nameList, valueList, typeList)
     
     if (found):
       print('\n'.join(tableLines))
     
-  def statusLibrary(self, width):
+  def statusLibrary(self, width, symName):
     # Initialize output
     lines = []
     
     # Plot variables
-    varWidth = int((width-2)/5)
-    leftOver = ' '*int(width - 2 - 5*varWidth)
+    numVars = 7
+    varWidth = int((width-2)/numVars)
+    leftOver = ' '*int(width - 2 - numVars*varWidth)
     
     # Create header
     nameStr = 'Name'.ljust(varWidth,' ')
+    libStr = 'Lib.'.ljust(varWidth,' ')
+    traitStr = 'Trait'.ljust(varWidth,' ')
     funcStr = 'Func.'.ljust(varWidth,' ')
     varStr = 'Var.'.ljust(varWidth,' ')
     taskStr = 'Task'.ljust(varWidth,' ')
     typeStr = 'Types'.ljust(varWidth,' ')
     lines.append('-'*width)
-    lines.append('|{0}|'.format('Library'.center(width-2,' ')))
+    lines.append('|{0}|'.format(symName.center(width-2,' ')))
     lines.append('-'*width)
-    lines.append('|{0}{1}{2}{3}{4}{5}|'.format(nameStr, funcStr, varStr, taskStr, typeStr, leftOver))
+    lines.append('|{0}{1}{2}{3}{4}{5}{6}{7}|'.format(nameStr, libStr, traitStr, funcStr, varStr, taskStr, typeStr, leftOver))
     lines.append('-'*width)
     
     # List variables
     found = False
     for name,sym in iter(self._symbol.items()):
-      if sym[0] is 'library':
+      if sym[0] is symName:
         found = True
         symbol = sym[1]
         
+        libNum   = 0
+        traitNum = 0
         funcNum  = 0
         varNum   = 0
         taskNum  = 0
@@ -230,6 +385,10 @@ class SymbolTable (object):
         for name,sym in iter(symbol._symbol.items()):
           if (sym[0] is 'signal'):
             varNum += 1
+          elif (sym[0] is 'trait'):
+            traitNum += 1
+          elif (sym[0] is 'library'):
+            libNum += 1
           elif (sym[0] is 'function'):
             funcNum += 1
           elif (sym[0] is 'task'):
@@ -238,15 +397,18 @@ class SymbolTable (object):
             typeNum +=1
         
         nameStr = symbol.name.ljust(varWidth,' ')
+        libStr = str(libNum).ljust(varWidth,' ')
+        traitStr = str(traitNum).ljust(varWidth,' ')
         funcStr = str(funcNum).ljust(varWidth,' ')
         varStr = str(varNum).ljust(varWidth,' ')
         taskStr = str(taskNum).ljust(varWidth,' ')
         typeStr = str(typeNum).ljust(varWidth,' ')
         
-        libStr = '{0}{1}{2}{3}{4}{5}'.format(nameStr, funcStr, varStr, taskStr, typeStr, leftOver)
+        libStr = '{0}{1}{2}{3}{4}{5}{6}{7}'.format(nameStr, libStr, traitStr, funcStr, varStr, taskStr, typeStr, leftOver)
         lines.append('|{0}|'.format(libStr))
         
-    return (found, lines)
+    if (found):
+      print('\n'.join(lines))
     
   def statusModules(self, width):
     # Initialize output
@@ -294,7 +456,8 @@ class SymbolTable (object):
         libStr = '{0}{1}{2}{3}{4}'.format(nameStr, genStr, portStr, archStr, leftOver)
         lines.append('|{0}|'.format(libStr))
         
-    return (found, lines)
+    if (found):
+      print('\n'.join(lines))
     
   def statusVariables(self, width):
     
@@ -326,8 +489,13 @@ class SymbolTable (object):
           dimStr = '[{0}]'.format(symbol.typeDim)
         else:
           dimStr = str(symbol.array)
+          
+        if (type(symbol) is not str):
+          typeName = '.'.join(symbol.typeName)
+        else:
+          typeName = symbol.typeName
         
-        typeStr = '{0}({1}){2}'.format(symbol.typeName, paramValue, dimStr)
+        typeStr = '{0}({1}){2}'.format(typeName, paramValue, dimStr)
         
         nameStr = '{0}({1},{2})'.format(symbol.name, symbol.isReferenced(), symbol.isImported())
         nameStr = nameStr.replace('True','T')
@@ -369,7 +537,8 @@ class SymbolTable (object):
     tableLines = self.formatTable(header, width, nameList, portList, 
                                   typeList, val1List, val2List,val3List)
         
-    return (found, tableLines)
+    if (found):
+      print('\n'.join(tableLines))
     
   def formatLine(self, maxColLen, tableLeftOver, ind, args):
     # Create Line

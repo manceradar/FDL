@@ -14,7 +14,7 @@ impl fmt.Fmt for bool:
       str result
     logic:
       # Call builtin vhdl string formatter
-      attr (builtin = "strfmt({0}, {1})") for vhdl_93
+      attr +(vhdl = "strfmt({0}, {1})")
       
       # Return bogus value for FDL type and size checking
       return result
@@ -27,165 +27,165 @@ impl bool:
       bit result
     logic:
       # Builtin source code
-      attr (builtin = "bool_to_bit({0})") for vhdl_93
+      attr +(vhdl = "bool_to_bit({0})")
       
       # Return bogus value for FDL type and size checking
       return result
 
 # Bool to bool operators
-impl Not for bool:
+impl bitwise.Not for bool:
   func not(Self self) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "not({0})") for vhdl_93
+      attr +(vhdl = "not({0})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl And for bool:
+impl bitwise.And for bool:
   func and(Self self, Self rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} and {1})") for vhdl_93
+      attr +(vhdl = "({0} and {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Or for bool:
+impl bitwise.Or for bool:
   func or(Self self, Self rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} or {1})") for vhdl_93
+      attr +(vhdl = "({0} or {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Xor for bool:
+impl bitwise.Xor for bool:
   func xor(Self self, Self rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} xor {1})") for vhdl_93
+      attr +(vhdl = "({0} xor {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Nand for bool:
+impl bitwise.Nand for bool:
   func nand(Self self, Self rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} nand {1})") for vhdl_93
+      attr +(vhdl = "({0} nand {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Nor for bool:
+impl bitwise.Nor for bool:
   func nor(Self self, Self rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} nor {1})") for vhdl_93
+      attr +(vhdl = "({0} nor {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Xnor for bool:
+impl bitwise.Xnor for bool:
   func xnor(Self self, Self rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} xnor {1})") for vhdl_93
+      attr +(vhdl = "({0} xnor {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl AndAssign for bool:
+impl bitwise.AndAssign for bool:
   func and_assign(Self self, Self rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "{0} <= ({0} and {1})") for vhdl_93
+      attr +(vhdl = "{0} <= ({0} and {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl OrAssign for bool:
+impl bitwise.OrAssign for bool:
   func or_assign(Self self, Self rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "{0} <= ({0} or {1})") for vhdl_93
+      attr +(vhdl = "{0} <= ({0} or {1})")
       
       # Return bogus value for FDL type and size checking
       return self
     
 # Bool to bit operators
-impl And<bit> for bool:
+impl bitwise.And<bit> for bool:
   func and(Self self, bit rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} and bit_to_bool({1}))") for vhdl_93
+      attr +(vhdl = "({0} and bit_to_bool({1}))")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Or<bit> for bool:
+impl bitwise.Or<bit> for bool:
   func or(Self self, bit rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} or bit_to_bool({1}))") for vhdl_93
+      attr +(vhdl = "({0} or bit_to_bool({1}))")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Xor<bit> for bool:
+impl bitwise.Xor<bit> for bool:
   func xor(Self self, bit rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} xor bit_to_bool({1}))") for vhdl_93
+      attr +(vhdl = "({0} xor bit_to_bool({1}))")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Nand<bit> for bool:
+impl bitwise.Nand<bit> for bool:
   func nand(Self self, bit rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} nand bit_to_bool({1}))") for vhdl_93
+      attr +(vhdl = "({0} nand bit_to_bool({1}))")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Nor<bit> for bool:
+impl bitwise.Nor<bit> for bool:
   func nor(Self self, bit rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} nor bit_to_bool({1}))") for vhdl_93
+      attr +(vhdl = "({0} nor bit_to_bool({1}))")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl Xnor<bit> for bool:
+impl bitwise.Xnor<bit> for bool:
   func xnor(Self self, bit rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "({0} xnor bit_to_bool({1}))") for vhdl_93
+      attr +(vhdl = "({0} xnor bit_to_bool({1}))")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl AndAssign<bit> for bool:
+impl bitwise.AndAssign<bit> for bool:
   func and_assign(Self self, bit rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "{0} <= ({0} and bit_to_bool({1}))") for vhdl_93
+      attr +(vhdl = "{0} <= ({0} and bit_to_bool({1}))")
       
       # Return bogus value for FDL type and size checking
       return self
     
-impl OrAssign<bit> for bool:
+impl bitwise.OrAssign<bit> for bool:
   func or_assign(Self self, bit rhs) -> Self:
     logic:
       # Builtin source code
-      attr (builtin = "{0} <= ({0} or bit_to_bool({1}))") for vhdl_93
+      attr +(vhdl = "{0} <= ({0} or bit_to_bool({1}))")
       
       # Return bogus value for FDL type and size checking
       return self
       
 # Concatenation
-impl Concat for bool
+impl concat.Concat for bool

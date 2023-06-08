@@ -18,8 +18,9 @@ module ffobar:
 arch fdl for ffobar:
   declare:
     # Shift register
+    attr =(foo = 10, bar = stuff)
     bit[stages]  reg = x'00'
-    attr (foo = 10, bar = stuff) for reg
+    
 
   logic:
       

@@ -1,75 +1,9 @@
 from copy import deepcopy
-from .SymbolTable import SymbolTable
 import numpy as np
 
-def flip(m,axis):
-  if not hasattr(m, 'ndim'):
-    m = asarray(m)
-  indexer = [slice(None)] * m.ndim
-  try:
-    indexer[axis] = slice(None, None, -1)
-  except IndexError:
-    raise ValueError("axis=%i is invalid for the %i-dimensional input array"
-                       % (axis, m.ndim))
-  return m[tuple(indexer)]
+from SymbolTable import SymbolTable
+from SymbolCheckers import SignalChecker, ParamChecker, ReturnStmtChecker, IndexChecker, TypeTraitChecker
 
-def determineDim(array):
-  # Determine dimensions of input parameter
-  numDim = 0
-  for dim in array:
-    # loop over dimensions
-    if (dim[0] != dim[1]):
-      numDim += 1
-      
-  return numDim
-  
-def calcOverloadFuncName(funcName, inputs):
-  # Determine function name with one that can be resolved
-  for x in inputs:
-    funcName += '_{0}{1}'.format(x.typeName, x.typeDim)
-    
-  return funcName
-  
-def calcAllFuncNames(funcName, inputs):
-  # Determine all function names for function
-  
-  # Calculate name with no inputs
-  defaultInd = np.array([x.value == None for x in inputs])
-  if (len(inputs) == 0):
-    defaultParam = inputs
-  else:
-    defaultParam = list(np.array(inputs)[defaultInd])
-    
-  names = [calcOverloadFuncName(funcName, defaultParam)]
-  
-  for ind in range(0,len(inputs)):
-    if (inputs[ind].value != None):
-      name = calcOverloadFuncName(funcName, inputs[0:ind+1])
-      names.append(name)
-    
-  return names
-
-def arraySize(array):
-  # At this point, all constant variables have been
-  # replaced by their integer, but not signals. This 
-  # code is to verify signal INDEXING, not signal slicing.
-  # If any index is a signal, the other index must be the
-  # same signal.
-  indStr = [isinstance(m,str) for m in array]
-  bothSame = (array[0] == array[1])
-  if (all(indStr) and bothSame):
-    return (None, None, 1)
-  elif (all(indStr) and not(bothSame)):
-    raise Exception('Variable index slicing')
-  elif (any(indStr)):
-    raise Exception('Variable index slicing')
-  
-  
-  # Assuming indices are numbers
-  if (array[0] > array[1]):
-    return (array[1], array[0], (array[0] - array[1] + 1))
-  else:
-    return (array[0], array[1], (array[1] - array[0] + 1))
 
 # All symbols inherit from base symbol
 class BaseSymbol (object):
@@ -130,99 +64,25 @@ class BaseSymbol (object):
       else:
         string += '  {0}: {1}\n'.format(attr,val)
     return string
+
     
-# All symbols that have parameter inputs use this class to verify 
-# inputs and declarations
-class Params (object):
-  def verifyParamDecl(self):
-    # Param verification
-    params = self.returnParams()
-    self.required = [x.value == None for x in params]
-    self.numArgs  = len(self.required)
-    
-    self.verifyDefaultValues()
-    
-  def verifyDefaultValues(self):
-    # Default values can only be defined after previous values havent.
-    # After default values defined, next params must have default values.
-    valuesDef = False
-    for paramReq in self.required:
-      # Invalid
-      if (paramReq and valuesDef):
-        raise('Param input invalid')
-      
-      # Determine when values must be required
-      if (not paramReq and not valuesDef):
-        valuesDef = True
-    
-  def verifyInputs(self, paramNodes):
-    # Check number of params
-    lenArgs = len(paramNodes)
-    
-    if (lenArgs > self.numArgs):
-      #Too many params
-      raise('"{0}" has {1} params but {2} given.'.format(self.name, self.numArgs, lenArgs))
-    
-    # Loop over input params
-    params = self.returnParams()
-    
-    inputValues = []
-    for ind,node in enumerate(paramNodes):
-      # Check params match
-      if (node.typeName not in params[ind].typeName):
-        raise Exception('{0}: {1} type does not match {2}.'.format(params[ind].name, node.typeName, params[ind].typeName))
-        
-      # Check dimensions
-      if (node.typeDim != params[ind].typeDim):
-        raise Exception('{0} dims does not match {1}.'.format(node.name, params[ind].name))
-        
-      # Append input
-      inputValues.append((params[ind].name, deepcopy(node.value)))
-      
-    # Loop over parameters not defined, if they exist
-    for ind in range(lenArgs,self.numArgs):
-      inputValues.append((params[ind].name, params[ind].value))
-          
-    return inputValues
-    
-# Define symbols from builtin or user defined sources
-class ParamSymbol (BaseSymbol):
+# Define generic symbols
+class GenTypeSymbol (BaseSymbol, IndexChecker):
   def __init__(self, node):
-    BaseSymbol.__init__(self, node.name, 'signal', node)
-    self.typeName    = node.type
-    self.typeDim     = node.dim
-    self.value       = node.value
-    self.const       = False
-    self.setParameter()
-    
-  # Used for simple indexing, before validating array is defined
-  def verifySimpleIndex(self, index):
-    # Determine type dimensions with given index. This is a quick check,
-    # not validating if indices are out of range. We will do that on 
-    # second path.
-    numDim = self.typeDim
+    if (type(node.name).__name__ == 'str'):
+      nodeName = node.name
+    elif (type(node.name).__name__ == 'Token'):
+      nodeName = node.name.value
+    else:
+      raise Exception('GenTypeSymbol Init Error')
       
-    if self.typeDim == 0:
-      raise Exception('Bad indexing 1')
-      
-    # Check indexing
-    for dim in index:
-      # loop over dimensions
-      if (len(dim) == 1):
-        self.typeDim -= 1
-        
-    if self.typeDim < 0:
-      raise Exception('Bad indexing 2')
-      
-    return
-    
-# Define builtin node from YAML config
-class ParamNode (object):
-  def __init__(self, configDict, ind):
-    self.name   = configDict['paramName'][ind]
-    self.type   = configDict['paramTypeName'][ind]
-    self.dim    = configDict['paramTypeDim'][ind]
-    self.value  = configDict['paramValue'][ind]
+    BaseSymbol.__init__(self, nodeName, 'generic', node)
+    self.name        = nodeName
+    self.typeDim     = None
+    self.defaultType = node.defaultType
+    self.typeBound   = node.typeBound
+    self.setTemplate()
+
     
 # Structures and interfaces use this class to add and find field variables
 class Field (object):
@@ -242,26 +102,77 @@ class Field (object):
     # Field not found
     return None
     
+    
 # Define builtin type from YAML config
-class BuiltinTypeSymbol (BaseSymbol, SymbolTable, Params):
-  def __init__(self, configDict, scopeLevel, encScope):
+class BuiltinTypeSymbol (BaseSymbol, SymbolTable, ParamChecker, TypeTraitChecker):
+  def __init__(self, configDict, encScope):
     # Define type from dict
     BaseSymbol.__init__(self,configDict['name'],'type')
-    SymbolTable.__init__(self, configDict['name'], scopeLevel, encScope)
+    SymbolTable.__init__(self, configDict['name'], encScope.scopeLevel+1, encScope)
+    TypeTraitChecker.__init__(self)
     
     # Param insertion
-    for ind in range(len(configDict['paramTypeName'])):
-      node = ParamNode(configDict, ind)
-      self.insert(ParamSymbol(node))
+    for symDict in configDict['paramSym']:
+      #node = ParamNode(configDict, ind)
+      #self.insert(ParamSymbol(node))
+      paramNode = ParamSymbol(symDict)
+      self.insert(paramNode)
       
     self.verifyParamDecl()
     
+  def addBuiltinMethod(self, builtinMethod):
+    # Add builtin type signals
+    for methodDef in builtinMethod:
+      funcSym = TypeMethodSymbol(methodDef, self)
+      self.insert(funcSym)
+      
+  def addTypeSymbol(self):
+    # Add type symbols to parameters
+    params = self.returnParams()
+    for param in params:
+      typeSym = self.lookup(param.typeName, 'type')
+      param.addTypeSymbol(typeSym)
+      
+    # Add function param type symbols
+    funcSymList = self.returnSymbolList(['function'])
+    for funcSym in funcSymList:
+      funcSym.addTypeSymbol()
+      
+    
+# Define builtin function symbols from YAML config
+class TypeMethodSymbol (BaseSymbol, SymbolTable, 
+                        ParamChecker, ReturnStmtChecker):
+  def __init__(self, configDict, encScope):
+    BaseSymbol.__init__(self, configDict['name'], 'function')
+    SymbolTable.__init__(self, configDict['name'], encScope.scopeLevel+1, encScope)
+    ReturnStmtChecker.__initDict__(self, configDict)
+    for symDict in configDict['returnSym']:
+      returnSym = SignalSymbol(symDict, None, [])
+      returnSym.setArray(symDict['array'])
+      self.returnNodes.append(returnSym)
+    
+    # Insert param symbols
+    for symDict in configDict['paramSym']:
+      paramNode = ParamSymbol(symDict)
+      self.insert(paramNode)
+    
+    # Verify params
+    self.verifyParamDecl()
+    self.funcDef = False
+    
+  def addTypeSymbol(self):
+    # Add type symbols to parameters
+    params = self.returnParams()
+    for param in params:
+      typeSym = self.lookup(param.typeName, 'type')
+      param.addTypeSymbol(typeSym)
+    
 # Define builtin process from YAML config
-class ProcessSymbol (BaseSymbol, SymbolTable, Params):
-  def __init__(self, configDict, scopeLevel, encScope):
+class ProcessSymbol (BaseSymbol, SymbolTable, ParamChecker):
+  def __init__(self, configDict, encScope):
     # Define type from dict
     BaseSymbol.__init__(self,configDict['name'],'process')
-    SymbolTable.__init__(self, configDict['name'], scopeLevel, encScope)
+    SymbolTable.__init__(self, configDict['name'], encScope.scopeLevel+1, encScope)
     
     # Param insertion
     for ind in range(len(configDict['paramTypeName'])):
@@ -272,91 +183,78 @@ class ProcessSymbol (BaseSymbol, SymbolTable, Params):
     
 class LibrarySymbol (BaseSymbol, SymbolTable):
   def __init__(self, node, encScope):
-    BaseSymbol.__init__(self, node.name, 'library', node)
-    SymbolTable.__init__(self, node.name, encScope.scopeLevel+1, encScope)
+    if (type(node).__name__ == 'BaseAST'):
+      self.__initGen__(node.name, encScope, node)
+    elif (type(node).__name__ == 'Token'):
+      self.__initGen__(node.value, encScope, None)
+    else:
+      raise Exception('LibrarySymbol Init Error')
+  def __initGen__(self, nodeName, encScope, node):
+    BaseSymbol.__init__(self, nodeName, 'library', node)
+    SymbolTable.__init__(self, nodeName, encScope.scopeLevel+1, encScope)
     self.nodes = []
     
+class AttributeSymbol (BaseSymbol):
+  def __init__(self, node, type):
+    BaseSymbol.__init__(self, node.name, 'attr', node)
+    self.name  = node.name
+    self.value = node.value
+    self.attrType  = type
+    
+class AssertSymbol (BaseSymbol):
+  def __init__(self, node):
+    BaseSymbol.__init__(self, 'TBD_ASSERT', 'assert', node)
+    
 class ModuleSymbol (BaseSymbol, SymbolTable):
-  def __init__(self, node, scopeLevel, encScope):
+  def __init__(self, node, encScope):
     BaseSymbol.__init__(self, node.name, 'module', node)
-    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
+    SymbolTable.__init__(self, node.name, encScope.scopeLevel+1, encScope)
     self.arch  = []
     self.gens  = []
     self.ports = []
     
 class ArchSymbol (BaseSymbol, SymbolTable):
-  def __init__(self, node, scopeLevel, encScope):
+  def __init__(self, node, encScope):
     BaseSymbol.__init__(self, node.name, 'arch', node)
-    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
+    SymbolTable.__init__(self, node.name, encScope.scopeLevel+1, encScope)
         
 # Define structure symbol for data consolidation
-class StructSymbol (BaseSymbol, SymbolTable, Params, Field):
-  def __init__(self, node, scopeLevel, encScope):
+class StructSymbol (BaseSymbol, SymbolTable, ParamChecker, Field, TypeTraitChecker):
+  def __init__(self, node, encScope):
     BaseSymbol.__init__(self, node.name, 'type', node)
-    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
+    SymbolTable.__init__(self, node.name, encScope.scopeLevel+1, encScope)
     Field.__init__(self)
+    TypeTraitChecker.__init__(self)
     
 # Define interface symbol for data consolidation
-class InterfaceSymbol (BaseSymbol, SymbolTable, Params, Field):
-  def __init__(self, node, scopeLevel, encScope):
+class InterfaceSymbol (BaseSymbol, SymbolTable, ParamChecker, Field, TypeTraitChecker):
+  def __init__(self, node, encScope):
     BaseSymbol.__init__(self, node.name, 'type', node)
-    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
-    Field.__init__(self)    
+    SymbolTable.__init__(self, node.name, encScope.scopeLevel+1, encScope)
+    Field.__init__(self)
+    TypeTraitChecker.__init__(self)
     
 # Define trait symbol for class interface definitions
-class TraitSymbol (BaseSymbol, SymbolTable, Params):
-  def __init__(self, node, scopeLevel, encScope):
-    BaseSymbol.__init__(self, node.name, 'type', node)
-    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
+class TraitSymbol (BaseSymbol, SymbolTable, ParamChecker):
+  def __init__(self, node, encScope):
+    BaseSymbol.__init__(self, node.name.value, 'trait', node)
+    SymbolTable.__init__(self, node.name.value, encScope.scopeLevel+1, encScope)
+    self.setTrait(True)
 
 # Define implement symbol for class interface implementation
-class ImplSymbol (BaseSymbol, SymbolTable, Params):
-  def __init__(self, node, scopeLevel, encScope):
-    BaseSymbol.__init__(self, node.name, 'type', node)
-    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
+class ImplSymbol (BaseSymbol, SymbolTable):
+  def __init__(self, node, encScope):
+    BaseSymbol.__init__(self, node.name, 'impl', node)
+    SymbolTable.__init__(self, node.name, encScope.scopeLevel+1, encScope)
 
 # Define user defined function symbol
-class FuncSymbol (BaseSymbol, SymbolTable, Params):
-  def __init__(self, node, scopeLevel, encScope):
-    if (type(node).__name__ == 'BaseAST'):
-      self.__initClass__(node, scopeLevel, encScope)
-    elif (type(node).__name__ == 'dict'):
-      self.__initDict__(node, scopeLevel, encScope)
-      
-  def __initClass__(self, node, scopeLevel, encScope):
-    BaseSymbol.__init__(self, node.name, 'function', node)
-    SymbolTable.__init__(self, node.name, scopeLevel, encScope)
-    self.synth = True
-    self.returnTypeName = []
-    self.returnTypeDim  = []
-    
-  def __initDict__(self, configDict, scopeLevel, encScope):
-    # Define type from dict
-    BaseSymbol.__init__(self,configDict['name'],'function')
-    SymbolTable.__init__(self, configDict['name'], scopeLevel, encScope)
-    self.synth = False
-    self.returnTypeName = configDict['returnTypeName']
-    self.returnTypeDim  = configDict['returnTypeDim']
-    
-    # Param insertion
-    for ind in range(len(configDict['paramTypeName'])):
-      node = ParamNode(configDict, ind)
-      self.insert(ParamSymbol(node))
-      
-    self.verifyParamDecl()
-    
-# Define builtin attribute symbols from YAML config
-class AttrSymbol (BaseSymbol, SymbolTable, Params):
-  def __init__(self, configDict, scopeLevel, encScope):
-    BaseSymbol.__init__(self, configDict['name'], 'attr')
-    SymbolTable.__init__(self, configDict['name'], scopeLevel, encScope)
-    self.returnTypeName = configDict['returnTypeName']
-    self.returnTypeDim  = configDict['returnTypeDim']
-    for ind in range(len(configDict['paramTypeName'])):
-      node = ParamNode(configDict, ind)
-      self.insert(ParamSymbol(node))
-    
-    self.verifyParamDecl()
+class FuncSymbol (BaseSymbol, SymbolTable, ParamChecker, ReturnStmtChecker):
+  def __init__(self, node, encScope):
+    print('\n'.join(node.log()))
+    BaseSymbol.__init__(self, node.name.value, 'function', node)
+    SymbolTable.__init__(self, node.name.value, encScope.scopeLevel+1, encScope)
+    ReturnStmtChecker.__initClass__(self)
+    self.funcDef        = node.funcDef
     
 class EnumSymbol (BaseSymbol):
   def __init__(self,name,states):
@@ -366,16 +264,45 @@ class EnumSymbol (BaseSymbol):
 class EnumStateSymbol (BaseSymbol):
   def __init__(self, name):
     BaseSymbol.__init__(name, 'state')
-        
+  
+
+# Define symbols from builtin or user defined sources
+class ParamSymbol (BaseSymbol, SignalChecker, IndexChecker):
+  def __init__(self, node):
+    if (type(node).__name__ == 'BaseAST'):
+      self.__initClass__(node)
+    elif (type(node).__name__ == 'dict'):
+      self.__initDict__(node)
+      
+    self.typeSym     = None
+    self.value       = None
+    self.const       = False
+    self.setParameter()
+      
+  def __initClass__(self, node):
+    BaseSymbol.__init__(self, node.name, 'signal', node)
+    self.typeName    = node.type
+    self.typeDim     = node.dim
+    
+    
+  def __initDict__(self, node):
+    BaseSymbol.__init__(self, node['name'], 'signal')
+    self.typeName    = node['typeName']
+    self.typeDim     = self.determineDim(node['array'])
+    
+  def addTypeSymbol(self, typeSym):
+    self.typeSym     = typeSym
+
 # 
-class SignalSymbol (BaseSymbol):
-  def __init__(self, node, inputParams):
+class SignalSymbol (BaseSymbol, SignalChecker, IndexChecker):
+  def __init__(self, node, typeSym, inputParams):
     if (type(node).__name__ == 'BaseAST'):
       self.__initClass__(node)
     elif (type(node).__name__ == 'dict'):
       self.__initDict__(node)
       
     self.typeParams  = inputParams
+    self.typeSym     = typeSym
     self.generic     = False
     self.port        = False
     
@@ -390,22 +317,32 @@ class SignalSymbol (BaseSymbol):
     self.valAsgnd      = np.full(1, False, dtype=bool)
     
   def __initClass__(self, node):
-    BaseSymbol.__init__(self, node.name, 'signal', node)
-    self.typeName    = node.typeName
+    if (type(node.name).__name__ == 'str'):
+      nodeName = node.name
+    elif (type(node.name).__name__ == 'Token'):
+      nodeName = node.name.value
+    else:
+      raise Exception('SignalSymbol Init Error')
+      
+    BaseSymbol.__init__(self, nodeName, 'signal', node)
+    self.typeName    = node.typeName.name
     if (node.base is 'CONST'):
       self.typeDim   = 0
     else:
-      self.typeDim     = determineDim(node.array)
+      self.typeDim   = self.determineDim(node.array)
     self.const       = node.const
     self.portType    = node.port
     
   def __initDict__(self, node):
     BaseSymbol.__init__(self, node['name'], 'signal')
     self.typeName    = node['typeName']
-    self.typeDim     = determineDim(node['array'])
+    self.typeDim     = self.determineDim(node['array'])
     self.const       = node['const']
     self.portType    = node['port']
     
+  #def addTypeSymbol(self, typeSym):
+  #  self.typeSym     = typeSym
+  
   def setGeneric(self):
     self.generic = True
     
@@ -418,34 +355,13 @@ class SignalSymbol (BaseSymbol):
   def isPort(self):
     return self.port
     
-  # Used for simple indexing, before validating array is defined
-  def verifySimpleIndex(self, index):
-    # Determine type dimensions with given index. This is a quick check,
-    # not validating if indices are out of range. We will do that on 
-    # second path.
-    numDim = self.typeDim
-      
-    if self.typeDim == 0:
-      raise Exception('Bad indexing 1')
-      
-    # Check indexing
-    for dim in index:
-      # loop over dimensions
-      if (len(dim) == 1):
-        self.typeDim -= 1
-        
-    if self.typeDim < 0:
-      raise Exception('Bad indexing 2')
-      
-    return
-    
   def setArray(self, array):
     self.flipInd     = [x[0] > x[1] for x in array]
-    self.array       = [list(arraySize(x)[0:2]) for x in array]
+    self.array       = [list(self.arraySize(x)[0:2]) for x in array]
     
-    arrayDim = tuple([arraySize(ind)[2] for ind in array])
+    arrayDim = tuple([self.arraySize(ind)[2] for ind in array])
     
-    self.dimIndOffset  = [arraySize(ind)[0] for ind in array]
+    self.dimIndOffset  = [self.arraySize(ind)[0] for ind in array]
     
     self.value         = np.empty(arrayDim, dtype='O')
     self.initAsgnd     = np.full(arrayDim, False, dtype=bool)
@@ -466,7 +382,7 @@ class SignalSymbol (BaseSymbol):
       
       # Get indexing in right frame
       print(index)
-      index = [list(arraySize(x)[0:2]) for x in index]
+      index = [list(self.arraySize(x)[0:2]) for x in index]
       print(index)
     
     # Check index
@@ -504,7 +420,7 @@ class SignalSymbol (BaseSymbol):
     
     if (index is None):
       index = deepcopy(self.array)
-      index = [list(arraySize(x)[0:2]) for x in index]
+      index = [list(self.arraySize(x)[0:2]) for x in index]
     
     # Check index
     if (not self.correctIndicies(index)):
@@ -526,7 +442,7 @@ class SignalSymbol (BaseSymbol):
     # Flip indices if they are defined reversed
     for dim,dimInd in enumerate(self.array):
       if (dimInd[0] > dimInd[1]):
-        self.valAsgnd = flip(self.valAsgnd,dim)
+        self.valAsgnd = self.flip(self.valAsgnd,dim)
     
   def correctIndicies(self,refInd):
     # See if declaration is array
@@ -534,7 +450,7 @@ class SignalSymbol (BaseSymbol):
     for ind,varDim in enumerate(self.array):
       if (ind <= lenRef):
         # Dimension exists, check values of array
-        refDim = arraySize(refInd[ind])
+        refDim = self.arraySize(refInd[ind])
         if ((refDim[0] < varDim[0]) or (refDim[1] > varDim[1])):
           return False
         

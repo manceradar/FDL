@@ -2,13 +2,12 @@
 
 ## Syntax Parser
 - [x] Add assert, log, warning, error statements
-- [ ] Module instatiation
+- [x] Module instatiation
 - [ ] If define in module ports
-- [ ] Add type as parameter input
+- [x] Add type as parameter input
 - [ ] Alias?
 - [ ] Add rename 
 - [ ] Finish replicate operator
-- [ ] How to handle time type?
 - [x] Finish case statement
 - [x] Add blackbox attribute to modules, functions, tasks
 - [x] Distinguish between module, variable declaration, and assignment

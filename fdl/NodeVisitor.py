@@ -8,7 +8,7 @@ class NodeVisitor (object):
     print('Visit Error: No visitor for type "{0}"'.format(node.base))
     
   def compile(self, node):
-    methodname = 'compiler_' + node.base.lower()
+    methodname = 'compile_' + node.base.lower()
     compiler = getattr(self, methodname, self.compile_error)
     return compiler(node)
     

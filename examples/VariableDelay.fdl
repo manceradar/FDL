@@ -16,9 +16,9 @@ module VariableDelay:
 arch fdl for VariableDelay:
   declare:
     # Shift register
+    attr =(foo = 10, bar = stuff)
     bit[stages]  reg = x'00'
-    attr (foo = 10, bar = stuff) for reg
-
+    
   logic:
  
     spro(clk,rst):

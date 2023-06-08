@@ -1,319 +1,585 @@
+tmlanguage.json
 name: FDL
+fileTypes:
+  - fdl
 scopeName: source.fdl
 patterns:
-  - include: '#statement'
-  - include: '#expression'
+  - include: '#block-comments'
+  - include: '#comments'
+  -
+    comment: attributes
+    name: meta.attribute.fdl
+    begin: '(#)(\!?)(\[)'
+    beginCaptures:
+      1:
+        name: punctuation.definition.attribute.fdl
+      2:
+        name: keyword.operator.attribute.inner.fdl
+      3:
+        name: punctuation.brackets.attribute.fdl
+    end: '\]'
+    endCaptures:
+      0:
+        name: punctuation.brackets.attribute.fdl
+    patterns:
+      - include: '#block-comments'
+      - include: '#comments'
+      - include: '#keywords'
+      - include: '#punctuation'
+      - include: '#strings'
+      - include: '#types'
+  -
+    comment: modules
+    match: (mod)\s+((?:r#(?!crate|[Ss]elf|super))?[a-z][A-Za-z0-9_]*)
+    captures:
+      1:
+        name: storage.type.fdl
+      2:
+        name: entity.name.module.fdl
+  -
+    comment: external crate imports
+    name: meta.import.fdl
+    begin: \b(extern)\s+(crate)
+    beginCaptures:
+      1:
+        name: storage.type.fdl
+      2:
+        name: keyword.other.crate.fdl
+    end: ;
+    endCaptures:
+      0:
+        name: punctuation.semi.fdl
+    patterns:
+      - include: '#block-comments'
+      - include: '#comments'
+      - include: '#keywords'
+      - include: '#punctuation'
+  -
+    comment: use statements
+    name: meta.use.fdl
+    begin: \b(use)\s
+    beginCaptures:
+      1:
+        name: keyword.other.fdl
+    end: ;
+    endCaptures:
+      0:
+        name: punctuation.semi.fdl
+    patterns:
+      - include: '#block-comments'
+      - include: '#comments'
+      - include: '#keywords'
+      - include: '#namespaces'
+      - include: '#punctuation'
+      - include: '#types'
+      - include: '#lvariables'
+  - include: '#lvariables'
+  - include: '#constants'
+  - include: '#functions'
+  - include: '#types'
+  - include: '#keywords'
+  - include: '#macros'
+  - include: '#namespaces'
+  - include: '#punctuation'
+  - include: '#strings'
+  - include: '#variables'
 repository:
-  impossible:
-    comment: >-
-      This is a special rule that should be used where no match is desired. It
-      is not a good idea to match something like '1{0}' because in some cases
-      that can result in infinite loops in token generation. So the rule instead
-      matches and impossible expression to allow a match to fail and move to the
-      next token.
-    match: $.^
-  statement:
-    patterns:
-      - include: '#import'
-      - include: '#function-declaration'
-      - include: '#semicolon'
-  semicolon:
-    patterns:
-      - name: invalid.deprecated.semicolon.fdl
-        match: \;$
   comments:
     patterns:
-      - name: comment.line.number-sign.fdl
-        contentName: meta.typehint.comment.fdl
-        begin: |
-          (?x)
-            (?:
-              \# \s* (type:)
-              \s*+ (?# we want `\s*+` which is possessive quantifier since
-                       we do not actually want to backtrack when matching
-                       whitespace here)
-              (?! $ | \#)
-            )
-        end: (?:$|(?=\#))
-        beginCaptures:
-          '0':
-            name: meta.typehint.comment.fdl
-          '1':
-            name: comment.typehint.directive.notation.fdl
+      -
+        comment: documentation comments
+        name: comment.line.documentation.fdl
+        match: ^\s*#[#\!].*
+      -
+        comment: line comments
+        name: comment.line.double-slash.fdl
+        match: \s*#.*
+  block-comments:
+    patterns:
+      -
+        comment: block documentation comments
+        name: comment.block.documentation.fdl
+        begin: #\*\*
+        end: \*#
         patterns:
-          - name: comment.typehint.ignore.notation.fdl
-            match: |
-              (?x)
-                \G ignore
-                (?= \s* (?: $ | \#))
-          - name: comment.typehint.type.notation.fdl
-            match: |
-              (?x)
-                (?<!\.)\b(
-                  bool | bytes | float | int | object | str
-                  | List | Dict | Iterable | Sequence | Set
-                  | FrozenSet | Callable | Union | Tuple
-                  | Any | None
-                )\b
-          - name: comment.typehint.punctuation.notation.fdl
-            match: ([\[\]\(\),\.\=\*]|(->))
-          - name: comment.typehint.variable.notation.fdl
-            match: ([[:alpha:]_]\w*)
-      - include: '#comments-base'
+          - include: '#block-comments'
+      -
+        comment: block comments
+        name: comment.block.fdl
+        begin: #\*(?!\*)
+        end: \*#
+        patterns:
+          - include: '#block-comments'
+  constants:
+    patterns:
+      -
+        comment: constant declarations
+        match: \b(const)\s+([A-Z][A-Za-z0-9_]*)\b
+        captures:
+          1:
+            name: storage.type.fdl
+          2:
+            name: constant.other.caps.fdl
+      -
+        comment: decimal integers and floats
+        name: constant.numeric.decimal.fdl
+        match: \b\d[\d_]*(\.?)[\d_]*(?:(E)([+-])([\d_]+))?\b
+        captures:
+          1:
+            name: punctuation.separator.dot.decimal.fdl
+          2:
+            name: keyword.operator.exponent.fdl
+          3:
+            name: keyword.operator.exponent.sign.fdl
+          4:
+            name: constant.numeric.decimal.exponent.mantissa.fdl
+      -
+        comment: hexadecimal vector
+        name: constant.numeric.hex.fdl
+        match: \bx\'[\da-fA-F_]+\'\b
+      -
+        comment: binary vector
+        name: constant.numeric.bin.fdl
+        match: \bb?\'[01ZXLH-_]+\'\b
+      -
+        comment: booleans
+        name: constant.language.bool.fdl
+        match: \b(True|False)\b
+  escapes:
+    comment: 'escapes: ASCII, byte, Unicode, quote, regex'
+    name: constant.character.escape.fdl
+    match: (\\)(?:(?:(x[0-7][0-7a-fA-F])|(u(\{)[\da-fA-F]{4,6}(\}))|.))
+    captures:
+      1:
+        name: constant.character.escape.backslash.fdl
+      2:
+        name: constant.character.escape.bit.fdl
+      3:
+        name: constant.character.escape.unicode.fdl
+      4:
+        name: constant.character.escape.unicode.punctuation.fdl
+      5:
+        name: constant.character.escape.unicode.punctuation.fdl
+  functions:
+    patterns:
+      -
+        comment: pub as a function
+        match: \b(pub)(\()
+        captures:
+          1:
+            name: keyword.other.fdl
+          2:
+            name: punctuation.brackets.round.fdl
+      -
+        comment: function definition
+        name: meta.function.definition.fdl
+        begin: \b(fn)\s+((?:r#(?!crate|[Ss]elf|super))?[A-Za-z0-9_]+)((\()|(<))
+        beginCaptures:
+          1:
+            name: keyword.other.fn.fdl
+          2:
+            name: entity.name.function.fdl
+          4:
+            name: punctuation.brackets.round.fdl
+          5:
+            name: punctuation.brackets.angle.fdl
+        end: \{|;
+        endCaptures:
+          0:
+            name: punctuation.brackets.curly.fdl
+        patterns:
+          - include: '#block-comments'
+          - include: '#comments'
+          - include: '#keywords'
+          - include: '#lvariables'
+          - include: '#constants'
+          - include: '#functions'
+          - include: '#macros'
+          - include: '#namespaces'
+          - include: ' tuation'
+          - include: '#strings'
+          - include: '#types'
+          - include: '#variables'
+      -
+        # todo: capitalized functions in most cases represent enum members or tuple structs
+        # separate these out and color them accordingly
+        # this has to be done without breaking struct scoping when the struct keyword is used:
+        # struct MyStruct()
+        # this currently highlights correctly, even with parens
+        comment: function/method calls, chaining
+        name: meta.function.call.fdl
+        begin: ((?:r#(?!crate|[Ss]elf|super))?[A-Za-z0-9_]+)(\()
+        beginCaptures:
+          1:
+            name: entity.name.function.fdl
+          2:
+            name: punctuation.brackets.round.fdl
+        end: \)
+        endCaptures:
+          0:
+            name: punctuation.brackets.round.fdl
+        patterns:
+          - include: '#block-comments'
+          - include: '#comments'
+          - include: '#keywords'
+          - include: '#lvariables'
+          - include: '#constants'
+          - include: '#functions'
+          - include: '#macros'
+          - include: '#namespaces'
+          - include: '#punctuation'
+          - include: '#strings'
+          - include: '#types'
+          - include: '#variables'
+      -
+        comment: function/method calls with turbofish
+        name: meta.function.call.fdl
+        begin: ((?:r#(?!crate|[Ss]elf|super))?[A-Za-z0-9_]+)(?=::<.*>\()
+        beginCaptures:
+          1:
+            name: entity.name.function.fdl
+        end: \)
+        endCaptures:
+          0:
+            name: punctuation.brackets.round.fdl
+        patterns:
+          - include: '#block-comments'
+          - include: '#comments'
+          - include: '#keywords'
+          - include: '#lvariables'
+          - include: '#constants'
+          - include: '#functions'
+          - include: '#macros'
+          - include: '#namespaces'
+          - include: '#punctuation'
+          - include: '#strings'
+          - include: '#types'
+          - include: '#variables'
+  keywords:
+    patterns:
+      -
+        comment: control flow keywords
+        name: keyword.control.fdl
+        match: \b(await|break|continue|do|else|for|if|loop|match|return|try|while|yield)\b
+      -
+        comment: storage keywords
+        name: keyword.other.fdl storage.type.fdl
+        match: \b(extern|let|macro|mod)\b
+      -
+        comment: const keyword
+        name: storage.modifier.fdl
+        match: \b(const)\b
+      -
+        comment: type keyword
+        name: keyword.declaration.type.fdl storage.type.fdl
+        match: \b(type)\b
+      -
+        comment: enum keyword
+        name: keyword.declaration.enum.fdl storage.type.fdl
+        match: \b(enum)\b
+      -
+        comment: trait keyword
+        name: keyword.declaration.trait.fdl storage.type.fdl
+        match: \b(trait)\b
+      -
+        comment: struct keyword
+        name: keyword.declaration.struct.fdl storage.type.fdl
+        match: \b(struct)\b
+      -
+        comment: storage modifiers
+        name: storage.modifier.fdl
+        match: \b(abstract|static)\b
+      -
+        comment: other keywords
+        name: keyword.other.fdl
+        match: \b(as|async|become|box|dyn|move|final|impl|in|override|priv|pub|ref|typeof|union|unsafe|unsized|use|virtual|where)\b
+      -
+        comment: fn
+        name: keyword.other.fn.fdl
+        match: \bfn\b
+      -
+        comment: crate
+        name: keyword.other.crate.fdl
+        match: \bcrate\b
+      -
+        comment: mut
+        name: storage.modifier.mut.fdl
+        match: \bmut\b
+      -
+        comment: logical operators
+        name: keyword.operator.logical.fdl
+        match: (\^|\||\|\||&&|<<|>>|!)(?!=)
+      -
+        comment: logical AND, borrow references
+        name: keyword.operator.borrow.and.fdl
+        match: '&(?![&=])'
+      -
+        comment: assignment operators
+        name: keyword.operator.assignment.fdl
+        match: (\+=|-=|\*=|/=|%=|\^=|&=|\|=|<<=|>>=)
+      -
+        comment: single equal
+        name: keyword.operator.assignment.equal.fdl
+        match: '(?<![<>])=(?!=|>)'
+      -
+        comment: comparison operators
+        name: keyword.operator.comparison.fdl
+        match: (=(=)?(?!>)|!=|<=|(?<!=)>=)
+      -
+        comment: math operators
+        name: keyword.operator.math.fdl
+        match: '(([+%]|(\*(?!\w)))(?!=))|(-(?!>))|(/(?!/))'
+      -
+        comment: less than, greater than (special case)
+        match: (?:\b|(?:(\))|(\])|(\})))[ \t]+([<>])[ \t]+(?:\b|(?:(\()|(\[)|(\{)))
+        captures:
+          1:
+            name: punctuation.brackets.round.fdl
+          2:
+            name: punctuation.brackets.square.fdl
+          3:
+            name: punctuation.brackets.curly.fdl
+          4:
+            name: keyword.operator.comparison.fdl
+          5:
+            name: punctuation.brackets.round.fdl
+          6:
+            name: punctuation.brackets.square.fdl
+          7:
+            name: punctuation.brackets.curly.fdl
+      -
+        comment: namespace operator
+        name: keyword.operator.namespace.fdl
+        match: '::'
+      -
+        comment: dereference asterisk
+        match: (\*)(?=\w+)
+        captures:
+          1:
+            name: keyword.operator.dereference.fdl
+      -
+        comment: subpattern binding
+        name: keyword.operator.subpattern.fdl
+        match: '@'
+      -
+        comment: dot access
+        name: keyword.operator.access.dot.fdl
+        match: \.(?!\.)
+      -
+        comment: ranges, range patterns
+        name: keyword.operator.range.fdl
+        match: \.{2}(=|\.)?
+      -
+        comment: colon
+        name: keyword.operator.key-value.fdl
+        match: ':(?!:)'
+      -
+        comment: dashrocket, skinny arrow
+        name: keyword.operator.arrow.skinny.fdl
+        match: ->
+      -
+        comment: hashrocket, fat arrow
+        name: keyword.operator.arrow.fat.fdl
+        match: =>
+      -
+        comment: dollar macros
+        name: keyword.operator.macro.dollar.fdl
+        match: \$
+      -
+        comment: question mark operator, questionably sized, macro kleene matcher
+        name: keyword.operator.question.fdl
+        match: \?
+  interpolations:
+    comment: curly brace interpolations
+    name: meta.interpolation.fdl
+    match: '({)[^"{}]*(})'
+    captures:
+      1:
+        name: punctuation.definition.interpolation.fdl
+      2:
+        name: punctuation.definition.interpolation.fdl
+  macros:
+    patterns:
+      -
+        comment: macros
+        name: meta.macro.fdl
+        match: (([a-z_][A-Za-z0-9_]*!)|([A-Z_][A-Za-z0-9_]*!))
+        captures:
+          2:
+            name: entity.name.function.macro.fdl
+          3:
+            name: entity.name.type.macro.fdl
+  namespaces:
+    patterns:
+      -
+        comment: namespace (non-type, non-function path segment)
+        match: (?<![A-Za-z0-9_])([a-z0-9_]+)((?<!super|self)::)
+        captures:
+          1:
+            name: entity.name.namespace.fdl
+          2:
+            name: keyword.operator.namespace.fdl
+  types:
+    patterns:
+      -
+        comment: numeric types
+        match: '(?<![A-Za-z])(f32|f64|i128|i16|i32|i64|i8|isize|u128|u16|u32|u64|u8|usize)\b'
+        captures:
+          1:
+            name: entity.name.type.numeric.fdl
+      -
+        comment: parameterized types
+        begin: \b([A-Z][A-Za-z0-9]*)(<)
+        beginCaptures:
+          1:
+            name: entity.name.type.fdl
+          2:
+            name: punctuation.brackets.angle.fdl
+        end: '>'
+        endCaptures:
+          0:
+            name: punctuation.brackets.angle.fdl
+        patterns:
+          - include: '#block-comments'
+          - include: '#comments'
+          - include: '#keywords'
+          - include: '#lvariables'
+          - include: '#punctuation'
+          - include: '#types'
+          - include: '#variables'
+      -
+        comment: primitive types
+        name: entity.name.type.primitive.fdl
+        match: \b(bool|char|str)\b
+      -
+        comment: trait declarations
+        match: \b(trait)\s+([A-Z][A-Za-z0-9]*)\b
+        captures:
+          1:
+            name: keyword.declaration.trait.fdl storage.type.fdl
+          2:
+            name: entity.name.type.trait.fdl
+      # todo: add a specific case for struct fields so they can have different scope than variables - make sure not to catch namespaces
+      -
+        comment: struct declarations
+        match: \b(struct)\s+([A-Z][A-Za-z0-9]*)\b
+        captures:
+          1:
+            name: keyword.declaration.struct.fdl storage.type.fdl
+          2:
+            name: entity.name.type.struct.fdl
+      -
+        comment: enum declarations
+        match: \b(enum)\s+([A-Z][A-Za-z0-9_]*)\b
+        captures:
+          1:
+            name: keyword.declaration.enum.fdl storage.type.fdl
+          2:
+            name: entity.name.type.enum.fdl
+      -
+        comment: type declarations
+        match: \b(type)\s+([A-Z][A-Za-z0-9_]*)\b
+        captures:
+          1:
+            name: keyword.declaration.type.fdl storage.type.fdl
+          2:
+            name: entity.name.type.declaration.fdl
+      -
+        comment: types
+        name: entity.name.type.fdl
+        match: '\b[A-Z][A-Za-z0-9]*\b(?!!)'
   punctuation:
     patterns:
-      - name: punctuation.separator.colon.fdl
-        match: ':'
-      - name: punctuation.separator.element.fdl
+      -
+        comment: comma
+        name: punctuation.comma.fdl
         match: ','
-  literal:
+      -
+        comment: curly braces
+        name: punctuation.brackets.curly.fdl
+        match: '[{}]'
+      -
+        comment: parentheses, round brackets
+        name: punctuation.brackets.round.fdl
+        match: '[()]'
+      -
+        comment: semicolon
+        name: punctuation.semi.fdl
+        match: ;
+      -
+        comment: square brackets
+        name: punctuation.brackets.square.fdl
+        match: '[\[\]]'
+      -
+        comment: angle brackets
+        name: punctuation.brackets.angle.fdl
+        match: '(?<!=)[<>]'
+  strings:
     patterns:
-      - name: constant.language.fdl
-        match: \b(True|False)\b
-      - include: '#number'
-  number:
-    name: constant.numeric.fdl
-    patterns:
-      - include: '#number-float'
-      - include: '#number-dec'
-      - include: '#number-hex'
-      - include: '#number-bin'
-      - name: invalid.illegal.name.fdl
-        match: \b[0-9]+\w+
-  number-float:
-    name: constant.numeric.float.fdl
-    match: |
-      (?x)
-        (?<! \w)(?:
-          (?:
-            \.[0-9](?: _?[0-9] )*
-            |
-            [0-9](?: _?[0-9] )* \. [0-9](?: _?[0-9] )*
-            |
-            [0-9](?: _?[0-9] )* \.
-          ) (?: [eE][+-]?[0-9](?: _?[0-9] )* )?
-          |
-          [0-9](?: _?[0-9] )* (?: [eE][+-]?[0-9](?: _?[0-9] )* )
-        )([jJ])?\b
-    captures:
-      '1':
-        name: storage.type.imaginary.number.fdl
-  number-dec:
-    name: constant.numeric.dec.fdl
-    match: |
-      (?x)
-        (?<![\w\.])(?:
-            [1-9](?: _?[0-9] )*
-            |
-            0+
-            |
-            [0-9](?: _?[0-9] )* ([jJ])
-            |
-            0 ([0-9]+)(?![eE\.])
-        )\b
-    captures:
-      '1':
-        name: storage.type.imaginary.number.fdl
-      '2':
-        name: invalid.illegal.dec.fdl
-  number-hex:
-    name: constant.numeric.hex.fdl
-    match: |
-      (?x)
-        (?<![\w\.])
-          (0[xX]) (_?[0-9a-fA-F])+
-        \b
-    captures:
-      '1':
-        name: storage.type.number.fdl
-  number-bin:
-    name: constant.numeric.bin.fdl
-    match: |
-      (?x)
-        (?<![\w\.])
-          (0[bB]) (_?[01])+
-        \b
-    captures:
-      '1':
-        name: storage.type.number.fdl
-  import:
-    comment: |
-      Import statements used to correctly mark `from`, `import`, and `as`
-    patterns:
-      - begin: \b(?<!\.)(from)\b(?=.+import)
-        end: $|(?=import)
+      -
+        comment: double-quoted strings and byte strings
+        name: string.quoted.double.fdl
+        begin: '(b?)(")'
         beginCaptures:
-          '1':
-            name: keyword.control.import.fdl
-        patterns:
-          - name: punctuation.separator.period.fdl
-            match: \.+
-          - include: '#expression'
-      - begin: \b(?<!\.)(import)\b
-        end: $
-        beginCaptures:
-          '1':
-            name: keyword.control.import.fdl
-        patterns:
-          - name: keyword.control.import.fdl
-            match: \b(?<!\.)as\b
-          - include: '#expression'
-  function-declaration:
-    name: meta.function.fdl
-    begin: |
-      (?x)
-        \s*
-        \b(func)\s+
-          (?=
-            [[:alpha:]_][[:word:]]* \s* \(
-          )
-    end: (:|(?=[#'"\n]))
-    beginCaptures:
-      '1':
-        name: storage.type.function.fdl
-    endCaptures:
-      '1':
-        name: punctuation.section.function.begin.fdl
-    patterns:
-      - include: '#function-def-name'
-      - include: '#parameters'
-      - include: '#line-continuation'
-      - include: '#return-annotation'
-  function-def-name:
-    patterns:
-      - include: '#illegal-object-name'
-      - include: '#builtin-possible-callables'
-      - name: entity.name.function.fdl
-        match: |
-          (?x)
-            \b ([[:alpha:]_]\w*) \b
-  parameters:
-    name: meta.function.parameters.fdl
-    begin: (\()
-    end: (\))
-    beginCaptures:
-      '1':
-        name: punctuation.definition.parameters.begin.fdl
-    endCaptures:
-      '1':
-        name: punctuation.definition.parameters.end.fdl
-    patterns:
-      - name: keyword.operator.unpacking.parameter.fdl
-        match: (\*\*|\*)
-      - include: '#lambda-incomplete'
-      - include: '#illegal-names'
-      - include: '#illegal-object-name'
-      - include: '#parameter-special'
-      - match: |
-          (?x)
-            ([[:alpha:]_]\w*)
-              \s* (?: (,) | (?=[)#\n=]))
-        captures:
-          '1':
-            name: variable.parameter.function.language.fdl
-          '2':
-            name: punctuation.separator.parameters.fdl
-      - include: '#comments'
-      - include: '#loose-default'
-      - include: '#annotated-parameter'
-  parameter-special:
-    match: |
-      (?x)
-        \b ((self)|(cls)) \b \s*(?:(,)|(?=\)))
-    captures:
-      '1':
-        name: variable.parameter.function.language.fdl
-      '2':
-        name: variable.parameter.function.language.special.self.fdl
-      '3':
-        name: variable.parameter.function.language.special.cls.fdl
-      '4':
-        name: punctuation.separator.parameters.fdl
-  loose-default:
-    begin: (=)
-    end: (,)|(?=\))
-    beginCaptures:
-      '1':
-        name: keyword.operator.fdl
-    endCaptures:
-      '1':
-        name: punctuation.separator.parameters.fdl
-    patterns:
-      - include: '#expression'
-  annotated-parameter:
-    begin: |
-      (?x)
-        \b
-        ([[:alpha:]_]\w*) \s* (:)
-    end: (,)|(?=\))
-    beginCaptures:
-      '1':
-        name: variable.parameter.function.language.fdl
-      '2':
-        name: punctuation.separator.annotation.fdl
-    endCaptures:
-      '1':
-        name: punctuation.separator.parameters.fdl
-    patterns:
-      - include: '#expression'
-      - name: keyword.operator.assignment.fdl
-        match: '=(?!=)'
-  return-annotation:
-    begin: (->)
-    end: (?=:)
-    beginCaptures:
-      '1':
-        name: punctuation.separator.annotation.result.fdl
-    patterns:
-      - include: '#expression'
-  item-access:
-    patterns:
-      - name: meta.item-access.fdl
-        begin: |
-          (?x)
-            \b(?=
-              [[:alpha:]_]\w* \s* \[
-            )
-        end: (\])
+          1:
+            name: string.quoted.byte.raw.fdl
+          2:
+            name: punctuation.definition.string.fdl
+        end: '"'
         endCaptures:
-          '1':
-            name: punctuation.definition.arguments.end.fdl
+          0:
+            name: punctuation.definition.string.fdl
         patterns:
-          - include: '#item-name'
-          - include: '#item-index'
-          - include: '#expression'
-  item-name:
+          - include: '#escapes'
+          - include: '#interpolations'
+      -
+        comment: double-quoted raw strings and raw byte strings
+        name: string.quoted.double.fdl
+        begin: '(b?r)(#*)(")'
+        beginCaptures:
+          1:
+            name: string.quoted.byte.raw.fdl
+          2:
+            name: punctuation.definition.string.raw.fdl
+          3:
+            name: punctuation.definition.string.fdl
+        end: '(")(\2)'
+        endCaptures:
+          1:
+            name: punctuation.definition.string.fdl
+          2:
+            name: punctuation.definition.string.raw.fdl
+      -
+        comment: characters and bytes
+        name: string.quoted.single.char.fdl
+        begin: "(b)?(')"
+        beginCaptures:
+          1:
+            name: string.quoted.byte.raw.fdl
+          2:
+            name: punctuation.definition.char.fdl
+        end: "'"
+        endCaptures:
+          0:
+            name: punctuation.definition.char.fdl
+        patterns:
+          - include: '#escapes'
+  lvariables:
     patterns:
-      - include: '#special-variables'
-      - include: '#builtin-functions'
-      - include: '#special-names'
-      - name: meta.indexed-name.fdl
-        match: |
-          (?x)
-            \b ([[:alpha:]_]\w*) \b
-  item-index:
-    begin: (\[)
-    end: (?=\])
-    beginCaptures:
-      '1':
-        name: punctuation.definition.arguments.begin.fdl
-    contentName: meta.item-access.arguments.fdl
+      -
+        comment: self
+        name: variable.language.self.fdl
+        match: \b[Ss]elf\b
+      -
+        comment: super
+        name: variable.language.super.fdl
+        match: \bsuper\b
+  variables:
     patterns:
-      - name: punctuation.separator.slice.fdl
-        match: ':'
-      - include: '#expression'
-  codetags:
-    match: (?:\b(NOTE|XXX|HACK|FIXME|BUG|TODO)\b)
-    captures:
-      '1':
-        name: keyword.codetag.notation.fdl
-  comments-base:
-    name: comment.line.number-sign.fdl
-    begin: (\#)
-    beginCaptures:
-      '1':
-        name: punctuation.definition.comment.fdl
-    end: ($)
-    patterns:
-      - include: '#codetags'
-
+      # In order to capture variables ending ranges, but not struct field access, we match a preceding dot, only if it's preceded by at least one other dot.
+      # The double negation states that the pattern "must not be preceded by a dot that is not preceded by a dot."
+      # Attempting to match on (\.{2,})? won't work, because then struct field access can match after the dot.
+      -
+        comment: variables
+        name: variable.other.fdl
+        match: \b(?<!(?<!\.)\.)(?:r#(?!(crate|[Ss]elf|super)))?[a-z0-9_]+\b

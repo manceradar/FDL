@@ -2,12 +2,13 @@ import re
 
 #Token class for keeping track of type, value, and scope
 class Token(object):
-  def __init__(self, type, value, scope, lineNo, charNo):
-    self.type   = type
-    self.value  = value
-    self.scope  = scope
-    self.lineNo = lineNo
-    self.charNo = charNo
+  def __init__(self, type, value, scope, textLine, lineNo, charNo):
+    self.type     = type
+    self.value    = value
+    self.scope    = scope
+    self.textLine = textLine
+    self.lineNo   = lineNo
+    self.charNo   = charNo
 
   def __str__(self):
     return 'Token(type="{type}", value="{val}", scope="{scope}", [lineNo,charNo],=[{line},{char}])'.format(
@@ -23,7 +24,15 @@ class Token(object):
     
     
 class Lexer(object):
-  def __init__(self, text, config):
+  def __init__(self, config):
+    #Get token and keyword list from config
+    self.tokens   = config['tokens']
+    self.keywords = config['keywords']
+    
+    self.textTokens = []
+      
+  def convert(self, text):
+    
     #Format text
     self.text     = text.replace('\t','  ')
     self.text     = self.text.replace('\r','')
@@ -36,15 +45,12 @@ class Lexer(object):
     self.complete = False
     self.scope    = 0
     
-    #Get token and keyword list from config
-    self.tokens   = config['tokens']
-    self.keywords = config['keywords']
-    
     #Parse entire file into tokens
-    self.textTokens = []
+    self.textTokens.clear()
     while (not self.complete):
       self.textTokens.append(self.get_next_token())
       #print(self.textTokens[-1])
+    
       
   def getTextLine(self, lineNo):
     # Account for +1 due to indexing
@@ -88,7 +94,7 @@ class Lexer(object):
     #if lineStr is empty, report EOL
     if not lineStr:
       ws = self.advanceIndex(lineStr)
-      return Token(ws, None, self.scope, self.lineInd+1, self.charInd)
+      return Token(ws, None, self.scope, lineStr, self.lineInd+1, self.charInd)
     
     #if WS was found, advance and check EOL EOF
     elif (matchObj):
@@ -101,7 +107,7 @@ class Lexer(object):
       #Return token if 'EOL' or 'EOF'
       ws = self.advanceIndex(matchStr)
       if ws is not None:
-        return Token(ws, None, self.scope, self.lineInd+1, self.charInd)
+        return Token(ws, None, self.scope, lineStr, self.lineInd+1, self.charInd)
         
     # No WS but not EOL, EOF. Can only be scope = 0
     if self.charInd == 0:
@@ -126,7 +132,7 @@ class Lexer(object):
   def get_next_token(self):
     #Return EOF if lexer reached end of text
     if self.complete:
-      return Token('EOF', None, self.scope, self.lineInd+1, self.charInd)
+      return Token('EOF', None, self.scope, '', self.lineInd+1, self.charInd)
     
     wsToken = self.matchWhiteSpace()
     if wsToken:
@@ -147,11 +153,11 @@ class Lexer(object):
         if (token['type'] == 'ID'):
           keyword = self.matchKeywords(matchStr)
           if keyword:
-            token = Token(keyword, matchStr, self.scope, self.lineInd+1, self.charInd)
+            token = Token(keyword, matchStr, self.scope, lineStr, self.lineInd+1, self.charInd)
           else:
-            token = Token(token['type'], matchStr, self.scope, self.lineInd+1, self.charInd)
+            token = Token(token['type'], matchStr, self.scope, lineStr, self.lineInd+1, self.charInd)
         else:
-          token = Token(token['type'], matchStr, self.scope, self.lineInd+1, self.charInd)
+          token = Token(token['type'], matchStr, self.scope, lineStr, self.lineInd+1, self.charInd)
         self.charInd += len(matchStr)
         return token
     

@@ -1,14 +1,23 @@
-from .Lexer import Lexer
-from .Lexer import Token
+from Lexer import Lexer
+from Lexer import Token
 import re
 import numpy as np
+from pathlib import Path
 from copy import deepcopy
+
+from enum import Enum
 
 def determineBits(intVal):
   if (intVal == 0):
     return 2
   else:
     return int(np.ceil(np.log2(abs(intVal)))+2)
+    
+class LogicEnum(Enum):
+  arch = 1
+  func = 2
+  task = 3
+  proc = 4
 
 #Simple class to keep track of code scope. FDL is
 #scoped using tabs/spaces.
@@ -115,12 +124,12 @@ class BaseAST(object):
     
 def createIntNode(value):
   intConstDict = {}
-  intConstDict['typeName']   = 'uint'
+  intConstDict['typeName']   = BaseAST('TYPE', [], {'name': ['uint']})
   intConstDict['params'] = determineBits(value)
   intConstDict['value']  = value
   intConstDict['name']   = 'const'
   intConstDict['const']  = True
-  intConstDict['port']   = None
+  intConstDict['port']   = False
   intConstDict['decl']   = True
   
   return BaseAST('CONST',[],intConstDict)
@@ -129,12 +138,12 @@ def createBitArray(value):
   bitDictArray = []
   for val in value:
     bitDict = {}
-    bitDict['typeName'] = 'bit'
+    bitDict['typeName'] = BaseAST('TYPE', [], {'name': ['bit']})
     bitDict['params']   = []
     bitDict['value']    = val
     bitDict['name']     = 'const'
     bitDict['const']    = True
-    bitDict['port']     = None
+    bitDict['port']     = False
     bitDict['decl']     = True
     
     bitDictArray.append(BaseAST('CONST',[],bitDict))
@@ -150,19 +159,32 @@ defaultArray = [[createIntNode(0), createIntNode(0)]]
 class SyntaxParser(object):
   def __init__(self, lexer):
     self.lexer = lexer
-    self.token = self.lexer.get()
+    
+    self.token = None
     self.scope = None
   
-  def error(self, expectedTokenType=None):
+  def error(self, expectedTokenType=None, errorStr=None):
     tType = self.getType()
-    tVal = self.getValue()
+    tVal = self.token.value
     tScope = self.getScope()
-    print('Unexpected syntax: line #{0} (Value: {1})'.format(self.token.lineNo, tVal))
-    print(self.lexer.getTextLine(self.token.lineNo))
-    print(' '*self.token.charNo + '^')
-    print(' '*self.token.charNo + '|')
+    
+    # Determine line number length
+    lineNo = self.token.lineNo
+    lineNoStrLen = len(str(lineNo))
+    
+    print('Unexpected syntax: line #{0} (Value: {1})'.format(lineNo, tVal))
+    print('Filename: {0}'.format(self.fdl_filename))
+    
+    # only print previous line if lineNo is not negative
+    print('{0}: {1}'.format(str(lineNo).rjust(lineNoStrLen, ' '), self.lexer.getTextLine(lineNo)))
+      
+    print(' '*(self.token.charNo+2+lineNoStrLen) + '^')
+    print(' '*(self.token.charNo+2+lineNoStrLen) + '|')
     if (expectedTokenType is not None):
       print('Expected Token {0} but got {1}, value="{2}"'.format(expectedTokenType, tType, tVal))
+      
+    if (errorStr is not None):
+      print(errorStr)
       
     if (self.scope.get() != tScope): 
       print('Expected Scope {0} but got {1}'.format(self.scope.get(), tScope))
@@ -188,7 +210,7 @@ class SyntaxParser(object):
     while (self.check(['COMMENT', 'COMMENT_HEADER', 'COMMENT_FMT', 'EOL'])):
       #Add comment to list
       if (self.check(['COMMENT', 'COMMENT_HEADER', 'COMMENT_FMT'])):
-        comment.append(self.getValue())
+        comment.append(self.getToken())
         
       self.next()
       
@@ -224,8 +246,11 @@ class SyntaxParser(object):
   def getScope(self):
     return self.token.scope
     
-  def getValue(self):
-    return self.token.value
+  #def getValue(self):
+  #  return self.token.value
+    
+  def getToken(self):
+    return self.token
   
   def getType(self):
     return self.token.type
@@ -238,8 +263,14 @@ class SyntaxParser(object):
   def rmScope(self):
     self.scope.rm()
     
-  def parse(self):
-    # Create dict
+  def parse(self, file_str, fdl_filename, importName):
+    # Lexer needs to convert to tokens
+    self.lexer.convert(file_str)
+    self.fdl_filename = fdl_filename
+    
+    self.next()
+    
+    # Create dict for AST
     fileDict = dict()
     
     # get initial comments
@@ -282,15 +313,30 @@ class SyntaxParser(object):
       else:
         self.error()
       
-    fileDict['nodes']= nodes
+    fileDict['filename'] = self.fdl_filename
+    fileDict['name'] = Path(self.fdl_filename).stem
+    fileDict['importName'] = importName 
+    fileDict['nodes'] = nodes
+    
+    # see if eof is reached
+    if not(self.check('EOF')):
+      self.error(errorStr='Parse error, unknown character achieved')
 
     # Create Root Node
     return BaseAST('FILE', comments, fileDict)
     
-  def loadBaseDecl(self):
+  def loadBaseDecl(self, includeSelf=False):
     # Loop over all declarations
     declNodes =[]
     decl = ['STRUCT', 'INTERFACE', 'TRAIT', 'IMPL', 'FUNC', 'TASK', 'ENUM', 'ATTR', 'ID', 'CONST']
+    
+    # If self included, check for SELFTYPE in signal
+    signalTokens = ['ID']
+    if includeSelf:
+      decl.append('SELFTYPE')
+      signalTokens.append('SELFTYPE')
+      
+    # loop through lines
     while (self.check(decl,True)):
       # Verify scope
       self.checkScope()
@@ -308,9 +354,9 @@ class SyntaxParser(object):
       elif (self.check('TASK')):
         declNodes.append(self.loadTaskDecl())
       elif (self.check('CONST')):
-        declNodes.append(self.loadVarDecl('const'))
-      elif (self.check('ID')):
-        declNodes.append(self.loadVarDecl('signal'))
+        declNodes.append(self.loadVarDecl('const', includeSelf))
+      elif (self.check(signalTokens)):
+        declNodes.append(self.loadVarDecl('signal', includeSelf))
       elif (self.check('ATTR')):
         declNodes.append(self.loadAttrDecl())
       elif (self.check('ENUM')):
@@ -318,7 +364,7 @@ class SyntaxParser(object):
         
     return declNodes
     
-  def loadDeclareBlock(self):
+  def loadDeclareBlock(self, includeSelf=False):
     #Load line (DECLARE COLON)
     
     # Verify scope
@@ -332,7 +378,10 @@ class SyntaxParser(object):
     # Add scope
     self.addScope()
     
-    declNodes = self.loadBaseDecl()
+    declNodes = self.loadBaseDecl(includeSelf)
+    
+    if (len(declNodes) == 0):
+      self.error(errorStr='Zero statements loaded, must have one')
       
     declDict = {'declNodes': declNodes}
     
@@ -355,12 +404,11 @@ class SyntaxParser(object):
     # Add scope
     self.addScope()
     
-    if (logicType is 'arch'):
-      nodes = self.loadArchStatements()
-    elif (logicType is 'func'):
-      nodes = self.loadFuncStatements()
-    elif (logicType is 'task'):
-      nodes = self.loadTaskStatements()
+    # Load logic statements
+    nodes = self.loadLogicStatements(logicType)
+    
+    if (len(nodes) == 0):
+      self.error(errorStr='Zero statements loaded, must have one')
     
     # Load logic statements
     logicDict = {'statements': nodes}
@@ -377,19 +425,19 @@ class SyntaxParser(object):
     importDict = dict()
     base = self.getType()
     self.verify('IMPORT')
-    importDict['load'] = [self.getValue()]
+    importDict['load'] = [self.getToken()]
     self.verify('ID')
       
     # Check if DOT is used to only load one item
     while (self.check('DOT')):
       self.verify('DOT')
-      importDict['load'].append(self.getValue())
+      importDict['load'].append(self.getToken())
       self.verify('ID')
       
     # Check if rename
     if (self.check('AS')):
       self.verify('AS')
-      importDict['name'] = self.getValue()
+      importDict['name'] = self.getToken()
       self.verify('ID')
     else:
       importDict['name'] = importDict['load'][-1]
@@ -405,7 +453,7 @@ class SyntaxParser(object):
     base = self.getType()
     self.verify('LIBRARY',True)
     libDict = dict()
-    libDict['name'] = self.getValue()
+    libDict['name'] = self.getToken()
     self.verify('ID')
     self.verify('COLON')
     comment = self.skip()
@@ -428,7 +476,7 @@ class SyntaxParser(object):
     base = self.getType()
     self.verify('STRUCT')
     structDict = dict()
-    structDict['name'] = self.getValue()
+    structDict['name'] = self.getToken()
     self.verify('ID')
     
     # See if structure has generic types
@@ -469,7 +517,7 @@ class SyntaxParser(object):
     base = self.getType()
     self.verify('INTERFACE')
     itfcDict = dict()
-    itfcDict['name'] = self.getValue()
+    itfcDict['name'] = self.getToken()
     self.verify('ID')
     
     # See if interface has generic types
@@ -510,7 +558,7 @@ class SyntaxParser(object):
     base = self.getType()
     self.verify('TRAIT')
     traitDict = dict()
-    traitDict['name'] = self.getValue()
+    traitDict['name'] = self.getToken()
     self.verify('ID')
     
     # See if trait has generic types
@@ -518,6 +566,16 @@ class SyntaxParser(object):
       traitDict['generics'] = self.loadGenTypeDecl()
     else:
       traitDict['generics'] = []
+      
+    # Add selftype to generic list if not already added
+    addSelfType = True
+    for gen in traitDict['generics']:
+      if gen.name == 'Self':
+        addSelfType = False
+        
+    if addSelfType:
+      genDict = {'name': 'Self', 'typeBound': [], 'defaultType': None}
+      traitDict['generics'].append(BaseAST('GENTYPE', [], genDict))
       
     self.verify('COLON')
     comment = self.skip()
@@ -551,7 +609,7 @@ class SyntaxParser(object):
       implDict['outGeneric'] = []
     
     # At this point, we are unsure if it is a inherent impl or trait impl
-    idName = self.loadBaseName('NAME')
+    idName = self.loadBaseName('TYPE')
     
     # See if type/trait has generic types
     if (self.check('LT')):
@@ -561,12 +619,14 @@ class SyntaxParser(object):
       
     if (self.check('FOR')):
       self.verify('FOR')
-      name = self.loadBaseName('NAME')
+      name = self.loadBaseName('TYPE')
       # See if output has generic types
       if (self.check('LT')):
         typeGen = self.loadGenTypeCall()
       else:
         typeGen = []
+        
+      idName.base = 'TRAIT'
         
       # Pack data
       implDict['name'] = name
@@ -579,13 +639,14 @@ class SyntaxParser(object):
       implDict['name'] = idName
       implDict['typeGeneric'] = genNode
       implDict['traitImpl'] = False
-      implDict['traitName'] = ''
+      implDict['traitName'] = None
       implDict['traitGeneric'] = []
       
     if (implDict['traitImpl'] and not self.check('COLON')):
       # For trait implementations, statements are not necessary 
       # This is due to some traits with all inherent functions
       implDict['nodes'] = []
+      comment = self.skip()
       return BaseAST(base, comment, implDict)
       
     
@@ -620,7 +681,7 @@ class SyntaxParser(object):
       elif (self.check('CONST')):
         declNodes.append(self.loadVarDecl('const'), includeSelf=True)
       elif (self.check('ATTR')):
-        declNodes.append(self.loadAttrDecl(includeSelf=True))
+        declNodes.append(self.loadAttrDecl())
         
     return declNodes
     
@@ -694,17 +755,17 @@ class SyntaxParser(object):
     # Only ports and interfaces have interface types
     if (declType is 'port'):
       # Interface type
-      varType['port'] = self.getValue()
+      varType['port'] = self.getToken()
       self.verify(['BASE_INTERFACE','EXT_INTERFACE'])
     elif (declType is 'interface'):
       # Interface type
-      varType['port'] = self.getValue()
+      varType['port'] = self.getToken()
       self.verify('EXT_INTERFACE')
     else:
       varType['port'] = None
     
     # Name
-    varType['name'] = self.getValue()
+    varType['name'] = self.getToken()
     self.verify('ID')
     
     # Only variables and gen can have initial values
@@ -730,17 +791,17 @@ class SyntaxParser(object):
     # Load (ENUM ID ASSIGN LPAREN ID (COMMA ID)* RPAREN)
     self.verify('ENUM')
     enumDict = dict()
-    enumDict['name'] = self.getValue()
+    enumDict['name'] = self.getToken()
     self.verify('ID')
     self.verify('ASSIGN')
     self.verify('LPAREN')
     
     # Load states
-    states = [self.getValue()]
+    states = [self.getToken()]
     self.verify('ID')
     while (self.check('COMMA')):
       self.verify('COMMA')
-      states.append(self.getValue())
+      states.append(self.getToken())
       self.verify('ID')
       
     self.verify('RPAREN')
@@ -749,10 +810,13 @@ class SyntaxParser(object):
     
     return BaseAST('ENUM',comment,enumDict)
     
-  def loadAttrDecl(self, includeSelf=False):
-    # Load (ATTR_DECL = ATTR LPAREN ATTR_SPEC (COMMA ATTR_SPEC)* RPAREN FOR TYPE_NAME)
+  def loadAttrDecl(self):
+    # Load (ATTR_DECL = ATTR (ADD_OPER | ASSIGN) LPAREN ATTR_SPEC (COMMA ATTR_SPEC)* RPAREN)
     self.verify('ATTR')
     attrDict = dict()
+    
+    attrDict['type'] = 'ATTR_ADD' if (self.getType() == 'ADD_OPER') else 'ATTR_APPLY'
+    self.verify(['ADD_OPER', 'ASSIGN'])
     self.verify('LPAREN')
     
     # Load states
@@ -764,9 +828,6 @@ class SyntaxParser(object):
     self.verify('RPAREN')
     attrDict['spec'] = nodes
     
-    self.verify('FOR')
-    attrDict['name'] = self.loadBaseName('NAME',includeSelf) # Yes
-    
     comment = self.skip()
     
     return BaseAST('ATTR', comment, attrDict)
@@ -774,7 +835,7 @@ class SyntaxParser(object):
   def loadAttrSpec(self):
     # Load (ATTR_SPEC = ID ASSIGN SIMP_EXPR)
     specDict = dict()
-    specDict['name'] = self.getValue()
+    specDict['name'] = self.getToken()
     self.verify('ID')
     self.verify('ASSIGN')
     specDict['value'] = self.loadSimpleExpr(False)
@@ -787,11 +848,11 @@ class SyntaxParser(object):
     # FUNC_NAME = (ID | LOGICAL_OPER | MOD_REM_OPER | NOT_OPER)
     # FUNC_STMT = (DECLARE_DECL BASE_DECL_STMT)? LOGIC_DECLARE FUNC_LOGIC_STMT
     
-    base = 'FUNC'
+    base = 'FUNCTION'
     self.verify('FUNC',True)
     funcDict = dict()
     
-    funcDict['name'] = self.getValue()
+    funcDict['name'] = self.getToken()
     functionNames = ['ID', 'RELATION_OPER', 'LOGICAL_OPER', 'MOD_REM_OPER', 'NOT_OPER']
     self.verify(functionNames)
     
@@ -825,10 +886,10 @@ class SyntaxParser(object):
     funcDict['declareBlock'] = None
     if (self.check('DECLARE')):
       #Next load signal definitions
-      funcDict['declareBlock'] = self.loadDeclareBlock()
+      funcDict['declareBlock'] = self.loadDeclareBlock(includeSelf)
     
     #Next load logic
-    funcDict['logicBlock'] = self.loadLogicBlock('func')
+    funcDict['logicBlock'] = self.loadLogicBlock(LogicEnum.func)
       
     #Return to original scope
     self.rmScope()
@@ -845,7 +906,7 @@ class SyntaxParser(object):
     self.verify('TASK',True)
     taskDict = dict()
     
-    taskDict['name'] = self.getValue()
+    taskDict['name'] = self.getToken()
     self.verify('ID')
     
     # See if trait has generic types
@@ -880,7 +941,7 @@ class SyntaxParser(object):
       taskDict['declareBlock'] = self.loadDeclareBlock()
     
     #Next load logic
-    taskDict['logicBlock'] = self.loadLogicBlock('task')
+    taskDict['logicBlock'] = self.loadLogicBlock(LogicEnum.task)
       
     #Return to original scope
     self.rmScope()
@@ -904,7 +965,7 @@ class SyntaxParser(object):
     else:
       # Load types
       genNodes = []
-      genNodes.append(self.loadBaseName('TYPE', includeSelf)) # Yes
+      genNodes.append(self.loadGenType(includeSelf)) # Yes
       
     return genNodes
     
@@ -963,7 +1024,7 @@ class SyntaxParser(object):
     varType['dim'] = dim
     
     #Get name
-    varType['name'] = self.getValue()
+    varType['name'] = self.getToken()
     name = ['ID']
     if (includeSelf):
       name.append('SELFVALUE')
@@ -998,7 +1059,7 @@ class SyntaxParser(object):
     genDict = dict()
     
     # Load generic type name
-    genDict['name'] = self.getValue()
+    genDict['name'] = self.getToken()
     self.verify(['ID','SELFTYPE'])
     
     # Are there type bounds?
@@ -1015,20 +1076,20 @@ class SyntaxParser(object):
       genDict['defaultType'] = None
       
     #Create module node
-    return BaseAST(base, [], genDict)
+    return BaseAST('GENTYPE', [], genDict)
     
   def loadTypeBound(self):
     # TYPE_BOUNDS = LPAREN ID (ADD_OPER ID)* RPAREN
     self.verify('LPAREN')
     
     # Get first bound
-    bounds = [self.getValue()]
+    bounds = [self.getToken()]
     self.verify('ID')
     
     # Determine if ther are more bounds
     if self.check('ADD_OPER'):
       self.verify('ADD_OPER')
-      bounds.append(self.getValue())
+      bounds.append(self.getToken())
       self.verify('ID')
     
     self.verify('RPAREN')
@@ -1079,7 +1140,7 @@ class SyntaxParser(object):
     base = self.getType()
     self.verify('MODULE', True)
     modDict = dict()
-    modDict['name'] = self.getValue()
+    modDict['name'] = self.getToken()
     self.verify('ID')
     
     # See if module has generic types
@@ -1172,7 +1233,7 @@ class SyntaxParser(object):
     base = self.getType()
     self.verify('ARCH', True)
     archDict = dict()
-    archDict['name'] = self.getValue()
+    archDict['name'] = self.getToken()
     self.verify('ID')
     
     # See if architecture has generic types
@@ -1180,7 +1241,7 @@ class SyntaxParser(object):
       archDict['archGenerics'] = self.loadGenTypeDecl()
     
     self.verify('FOR')
-    archDict['module'] = self.getValue()
+    archDict['module'] = self.getToken()
     self.verify('ID')
     
     # See if module has generic types
@@ -1200,77 +1261,78 @@ class SyntaxParser(object):
       archDict['declareBlock'] = self.loadDeclareBlock()
     
     #Next load logic
-    archDict['logicBlock'] = self.loadLogicBlock('arch')
+    archDict['logicBlock'] = self.loadLogicBlock(LogicEnum.arch)
     
     #Return to original scope
     self.rmScope()
     
     return BaseAST(base, comment, archDict)
     
-  def loadArchStatements(self):
+  def loadLogicStatements(self, logicType):
     # Load logic statements
-    # (ASSIGNMENT|METHOD_TASK_CALL|FOR|CASE|IF|MODULE_INST|SPRO|APRO|PRO|ASSERTION|RENAME_CALL)
+    #   Arch statements: (ASSIGNMENT|METHOD_TASK_CALL|FOR|CASE|IF|MODULE_INST|SPRO|APRO|PRO|ASSERTION|RENAME_CALL|ATTR)
+    #   Func statements: (ASSIGNMENT|METHOD_TASK_CALL|FOR|CASE|IF|ASSERTION|REPORT|RETURN|ATTR)
+    #   Task statements: (ASSIGNMENT|METHOD_TASK_CALL|FOR|CASE|IF|MODULE_INST|SPRO|APRO|PRO|ASSERTION|RETURN|ATTR)
+    #   Proc statements: (ASSIGNMENT|METHOD_TASK_CALL|FOR|CASE|IF|ASSERTION|REPORT)
     statementNodes = []
-    tokenList = ['ID', 'FOR', 'IF', 'CASE', 'SPRO', 'APRO', 'PRO', 'ASSERT', 'RENAME', 'LPAREN']
+    
+    # All statements
+    tokenList = ['ID', 'FOR', 'IF', 'CASE', 'SPRO', 'APRO', 'PRO', 'ASSERT', 'REPORT', 'RENAME', 'LPAREN', 'SELFVALUE', 'ATTR', 'RETURN']
     while (self.check(tokenList,True)):
       # Load all statements
-      statementNodes.append(self.loadStatement())
+      statementNodes.append(self.loadStatement(logicType))
     
     return statementNodes
     
-  def loadFuncStatements(self):
-    # Load function statements
-    # (ASSIGNMENT|METHOD_TASK_CALL|FOR|CASE|IF|ASSERTION|REPORT|RETURN)
-    statementNodes = []
-    tokenList = ['ID', 'FOR', 'IF', 'CASE', 'ASSERT', 'REPORT', 'RETURN', 'LPAREN', 'SELFVALUE']
-    while (self.check(tokenList,True)):
-      # Load all statements
-      statementNodes.append(self.loadStatement())
-    
-    return statementNodes
-    
-  def loadTaskStatements(self):
-    # Load task statements
-    # (ASSIGNMENT | METHOD_TASK_CALL | FORBLOCK | CASEBLOCK | IFBLOCK | ASSERTION | PROBLOCK | MODULE_INST | RETURN_STMT)
-    statementNodes = []
-    tokenList = ['ID', 'FOR', 'IF', 'CASE', 'SPRO', 'APRO', 'PRO', 'ASSERT', 'REPORT', 'RETURN', 'LPAREN', 'SELFVALUE']
-    while (self.check(tokenList,True)):
-      # Load all statements
-      statementNodes.append(self.loadStatement())
-    
-    return statementNodes
-    
-  def loadStatement(self, isPro=False):
+  def loadStatement(self, logicType):
     # Allowed statements:
     if (self.check('SPRO')):
+      # Error checking
+      if (logicType in [LogicEnum.func, LogicEnum.proc]):
+        self.error(errorStr='Detected a synchronous process, not allowed in this contexted')
       return self.loadSpro()
       
     elif (self.check('APRO')):
+      if (logicType in [LogicEnum.func, LogicEnum.proc]):
+        self.error(errorStr='Detected an asynchronous process, not allowed in this contexted')
       return self.loadApro()
       
     elif (self.check('PRO')):
+      if (logicType in [LogicEnum.func, LogicEnum.proc]):
+        self.error(errorStr='Detected a user-defined process, not allowed in this contexted')
       return self.loadPro()
       
     elif (self.check('FOR')):
-      return self.loadFor(isPro)
+      return self.loadFor(logicType)
       
     elif (self.check('IF')):
-      return self.loadIf(isPro)
+      return self.loadIf(logicType)
       
     elif (self.check('CASE')):
-      return self.loadCase(isPro)
+      return self.loadCase(logicType)
       
     elif (self.check('RENAME')):
+      if (logicType in [LogicEnum.func, LogicEnum.proc, LogicEnum.task]):
+        self.error(errorStr='Detected a rename statement, not allowed in this contexted')
       return self.loadRename()
       
     elif (self.check('ASSERT')):
       return self.loadAssert()
       
     elif (self.check('REPORT')):
+      if (logicType in [LogicEnum.arch, LogicEnum.task]):
+        self.error(errorStr='Detected a report statement, not allowed in this contexted')
       return self.loadReport()
       
     elif (self.check('RETURN')):
+      if (logicType in [LogicEnum.arch, LogicEnum.proc]):
+        self.error(errorStr='Detected a report statement, not allowed in this contexted')
       return self.loadReturn()
+      
+    elif (self.check('ATTR')):
+      if (logicType in [LogicEnum.proc]):
+        self.error(errorStr='Detected an attribute statement, not allowed in this contexted')
+      return self.loadAttrDecl()
       
     elif (self.check('LPAREN')):
       return self.loadAssignment()
@@ -1279,6 +1341,8 @@ class SyntaxParser(object):
       # If ID, determine if its a module inst., var declaration, or assignment
       type = self.determineStatement()
       if (type == 'MODULE'):
+        if (logicType in [LogicEnum.func, LogicEnum.proc]):
+          self.error(errorStr='Detected a rename statement, not allowed in this contexted')
         return self.loadModuleInst()
         
       elif (type == 'METHOD_TASK'):
@@ -1322,26 +1386,6 @@ class SyntaxParser(object):
       # No assignment, so its a task or method call
       return 'METHOD_TASK'
     
-  def loadProStatements(self):
-    # Load process statements
-    # (ASSIGNMENT|FOR|CASE|IF|ASSERTION)
-    statementNodes = []
-    tokenList = ['ID', 'FOR', 'IF', 'CASE', 'ASSERT']
-    while (self.check(tokenList,True)):
-      if (self.check('ID')):
-        # Ensure not to load module inst.
-        type = self.determineStatement()
-        if (type is 'MODULE'):
-          #Module inst, error
-          raise Exception('Module instatiation detected in process')
-        elif (type is 'VAR_DECL'):
-          raise Exception('Variable declaration detected in process')
-        
-      # Load statement
-      statementNodes.append(self.loadStatement(True))
-    
-    return statementNodes
-    
   def loadSpro(self):
     # Load line (SPRO ARG_LIST COLON)
     base = self.getType()
@@ -1353,7 +1397,7 @@ class SyntaxParser(object):
     self.addScope()
     
     # Load process statements
-    sproDict['statements'] = self.loadProStatements()
+    sproDict['statements'] = self.loadLogicStatements(LogicEnum.proc)
     
     # Make sure there were statements found
     if (not sproDict['statements']):
@@ -1374,7 +1418,7 @@ class SyntaxParser(object):
     self.addScope()
     
     # Load process statements
-    aproDict['statements'] = self.loadProStatements()
+    aproDict['statements'] = self.loadLogicStatements(LogicEnum.proc)
     
     # Make sure there were statements found
     if (not aproDict['statements']):
@@ -1395,7 +1439,7 @@ class SyntaxParser(object):
     self.addScope()
     
     # Load process statements
-    proDict['statements'] = self.loadProStatements()
+    proDict['statements'] = self.loadLogicStatements(LogicEnum.proc)
     
     # Make sure there were statements found
     if (not proDict['statements']):
@@ -1405,12 +1449,12 @@ class SyntaxParser(object):
     
     return BaseAST(base, comment, proDict)
     
-  def loadFor(self,isPro):
+  def loadFor(self, logicType):
     # Load line (FOR ID IN (RANGE_EXPR|VAR) COLON)
     base = self.getType()
     self.verify('FOR')
     forDict = dict()
-    forDict['ind'] = self.getValue()
+    forDict['ind'] = self.getToken()
     self.verify('ID')
     self.verify('ASSIGN')
     forDict['iter'] = self.loadSimpleExpr(False)
@@ -1419,11 +1463,8 @@ class SyntaxParser(object):
     
     self.addScope()
     
-    # Load process statements
-    if (isPro):
-      forDict['statements'] = self.loadProStatements()
-    else:
-      forDict['statements'] = self.loadLogicStatements()
+    # Load statements
+    forDict['statements'] = self.loadLogicStatements(logicType)
       
     # Make sure there were statements found
     if (not forDict['statements']):
@@ -1433,7 +1474,7 @@ class SyntaxParser(object):
     
     return BaseAST(base, comment, forDict)
     
-  def loadIf(self,isPro):
+  def loadIf(self, logicType):
     # Load line (IF LPAREN SIMP_EXPR RPAREN COLON)
     base = self.getType()
     self.verify('IF', True)
@@ -1446,12 +1487,7 @@ class SyntaxParser(object):
     self.addScope()
     
     # Load statements
-    if (isPro):
-      # Load process
-      ifDict['statements'] = self.loadProStatements()
-    else:
-      # Load logic
-      ifDict['statements'] = self.loadLogicStatements()
+    ifDict['statements'] = self.loadLogicStatements(logicType)
       
     # Make sure there were statements found
     if (not ifDict['statements']):
@@ -1463,16 +1499,16 @@ class SyntaxParser(object):
     ifDict['elif'] = []
     while (self.check('ELIF')):
       # Load elif
-      ifDict['elif'].append(self.loadElif(isPro))
+      ifDict['elif'].append(self.loadElif(logicType))
       
     # Check for ELSE
     ifDict['else'] = []
     if (self.check('ELSE')):
-      ifDict['else'].append(self.loadElse(isPro))
+      ifDict['else'].append(self.loadElse(logicType))
     
     return BaseAST(base, comment, ifDict)
     
-  def loadElif(self,isPro):
+  def loadElif(self, logicType):
     # Load line (ELIF LPAREN SIMP_EXPR RPAREN COLON)
     base = self.getType()
     self.verify('ELIF', True)
@@ -1485,12 +1521,7 @@ class SyntaxParser(object):
     self.addScope()
     
     # Load statements
-    if (isPro):
-      # Load process
-      elifDict['statements'] = self.loadProStatements()
-    else:
-      # Load logic
-      elifDict['statements'] = self.loadLogicStatements()
+    elifDict['statements'] = self.loadLogicStatements(logicType)
       
     # Make sure there were statements found
     if (not elifDict['statements']):
@@ -1500,7 +1531,7 @@ class SyntaxParser(object):
     
     return BaseAST(base, comment, elifDict)
     
-  def loadElse(self,isPro):
+  def loadElse(self, logicType):
     # Load line (ELSE COLON)
     base = self.getType()
     self.verify('ELSE', True)
@@ -1510,12 +1541,7 @@ class SyntaxParser(object):
     self.addScope()
     
     # Load statements
-    if (isPro):
-      # Load process
-      elseDict = {'statements': self.loadProStatements()}
-    else:
-      # Load logic
-      elseDict = {'statements': self.loadLogicStatements()}
+    elseDict = {'statements': self.loadLogicStatements(logicType)}
       
     # Make sure there were statements found
     if (not elseDict['statements']):
@@ -1525,7 +1551,7 @@ class SyntaxParser(object):
     
     return BaseAST(base, comment, elseDict)
     
-  def loadCase(self,isPro):
+  def loadCase(self, logicType):
     # Load line (CASE LPAREN SIMP_EXPR RPAREN COLON)
     base = self.getType()
     self.verify('CASE', True)
@@ -1540,7 +1566,7 @@ class SyntaxParser(object):
     # Loop over all choices within new scope
     caseChoices = []
     while(self.checkScope()):
-      caseChoices.append(self.loadCaseChoice(isPro))
+      caseChoices.append(self.loadCaseChoice(logicType))
       
     # Make sure there were statements found
     if (not caseChoices):
@@ -1551,7 +1577,7 @@ class SyntaxParser(object):
     
     return BaseAST(base, comment, caseDict)
     
-  def loadCaseChoice(self,isPro):
+  def loadCaseChoice(self, logicType):
     # Load line (CHOICE COLON)
     caseDict = dict()
     caseDict['choice'] = self.loadChoice(True)
@@ -1560,13 +1586,8 @@ class SyntaxParser(object):
     
     self.addScope()
     
-    # Load process or logic statements
-    if (isPro):
-      # Load process
-      caseDict['statements'] = self.loadProStatements()
-    else:
-      # Load logic
-      caseDict['statements'] = self.loadLogicStatements()
+    # Load logic statements
+    caseDict['statements'] = self.loadLogicStatements(logicType)
       
     # Make sure there were statements found
     if (not caseDict['statements']):
@@ -1587,7 +1608,7 @@ class SyntaxParser(object):
       
     # Determine assignment type
     asgnList = ['ASSIGN', 'CMPD_ARITH_ASSIGN', 'CMPD_LOGICAL_ASSIGN', 'POST_OPER']
-    asgnDict['op'] = self.getValue()
+    asgnDict['op'] = self.getToken()
     operType = self.getType()
     self.verify(asgnList)
     
@@ -1606,9 +1627,9 @@ class SyntaxParser(object):
     # BASE_NAME = ID (DOT ID)*
     base = 'MODULE_INST'
     modDict = dict()
-    modDict['name'] = self.getValue()
+    modDict['name'] = self.getToken()
     self.verify('ID')
-    modDict['module'] = self.loadBaseName('NAME')
+    modDict['module'] = self.loadBaseName('MODULE')
     
     # See if module has generic types
     if (self.check('LT')):
@@ -1619,7 +1640,7 @@ class SyntaxParser(object):
     # Determine if specific architecture is called
     if (self.check('LPAREN')):
       self.verify('LPAREN')
-      modDict['arch'] = self.getValue()
+      modDict['arch'] = self.getToken()
       self.verify(['ID','BLACKBOX'])
       self.verify('RPAREN')
     else:
@@ -1791,7 +1812,7 @@ class SyntaxParser(object):
       return self.loadSimpleExpr(isDecl)
     
   def loadAggregate(self,isDecl):
-    # Load line (LCURBRAC ELEM_ASSOC (COMMA ELEM_ASSOC)* RCURBRAC)
+    # Load line (LBRACK ELEM_ASSOC (COMMA ELEM_ASSOC)* RBRACK)
     comments = []
     self.verify('LBRACK')
     comments += self.skip()
@@ -1868,7 +1889,7 @@ class SyntaxParser(object):
     while (self.check(oper)):
       # Create new expr node
       exprDict = dict()
-      exprDict['op']   = self.getValue()
+      exprDict['op']   = self.getToken()
       self.verify(oper)
       exprDict['params'] = [node, self.loadRelation(isDecl)]
       node = BaseAST('EXPR', [], exprDict)
@@ -1877,7 +1898,7 @@ class SyntaxParser(object):
     node.units = None
     if (self.check('ID')):
       node.type = 'time'
-      node.units = self.getValue()
+      node.units = self.getToken()
       self.verify('ID')
       
     return node
@@ -1886,11 +1907,11 @@ class SyntaxParser(object):
     # Load (TERM (RELATION_OPER TERM)*)
     node = self.loadTerm(isDecl)
     
-    oper = ['RELATION_OPER']
+    oper = ['RELATION_OPER', 'GT', 'LT']
     while (self.check(oper)):
       # Create new expr node
       exprDict = dict()
-      exprDict['op']   = self.getValue()
+      exprDict['op']   = self.getToken()
       self.verify(oper)
       exprDict['params'] = [node, self.loadTerm(isDecl)]
       node = BaseAST('EXPR', [], exprDict)
@@ -1905,7 +1926,7 @@ class SyntaxParser(object):
     while (self.check(oper)):
       # Create new expr node
       exprDict = dict()
-      exprDict['op']   = self.getValue()
+      exprDict['op']   = self.getToken()
       if (self.getType() == 'CAT'):
         op = 'CAT'
       else:
@@ -1924,7 +1945,7 @@ class SyntaxParser(object):
     while (self.check(oper)):
       # Create new expr node
       exprDict = dict()
-      exprDict['op']   = self.getValue()
+      exprDict['op']   = self.getToken()
       self.verify(oper)
       exprDict['params'] = [node, self.loadExponent(isDecl)]
       node = BaseAST('EXPR', [], exprDict)
@@ -1939,7 +1960,7 @@ class SyntaxParser(object):
     while (self.check(oper)):
       # Create new expr node
       exprDict = dict()
-      exprDict['op']   = self.getValue()
+      exprDict['op']   = self.getToken()
       self.verify(oper)
       exprDict['params'] = [node, self.loadUnary(isDecl)]
       node = BaseAST('EXPR', [], exprDict)
@@ -1954,7 +1975,7 @@ class SyntaxParser(object):
     if (self.check(oper)):
       # Create new expr node
       exprDict = dict()
-      exprDict['op']   = self.getValue()
+      exprDict['op']   = self.getToken()
       self.verify(oper)
       exprDict['params'] = [self.loadPrimary(isDecl)]
       node = BaseAST('EXPR', [], exprDict)
@@ -1979,7 +2000,7 @@ class SyntaxParser(object):
     elif (self.check(funcList)):
       # We dont know if it is function or variable
       if (self.peek().type in ['LPAREN','LT']):
-        return self.loadFuncCall(isDecl)
+        return self.loadFuncCall(isDecl, False)
       else:
         return self.loadVar(isDecl)
         
@@ -1989,10 +2010,10 @@ class SyntaxParser(object):
     else:
       self.error()
     
-  def loadFuncCall(self, isDecl):
+  def loadFuncCall(self, isDecl, isMethod):
     # Load (FUNC_NAME GEN_TYPE_CALL? CALL_ARG_LIST)
     funcList  = ['ID', 'LOGICAL_OPER', 'MOD_REM_OPER', 'NOT_OPER']
-    funcDict = {'name': self.getValue()}
+    funcDict = {'name': self.getToken()}
     self.verify(funcList)
     
     # See if module has generic types
@@ -2003,6 +2024,7 @@ class SyntaxParser(object):
     
     # Input parameters
     funcDict['params'] = self.loadCallArgList(isDecl)
+    funcDict['method'] = isMethod
     
     return BaseAST('FUNCCALL', [], funcDict)
       
@@ -2012,16 +2034,17 @@ class SyntaxParser(object):
     
     numDict = dict()
     typeStr = self.getType()
-    valStr = self.getValue()
+    numDict['token'] = self.getToken()
+    valStr = numDict['token'].value
     
     # Convert value
     if (typeStr == 'INTEGER'):
       value = int(valStr)
-      numDict['typeName'] = 'sint'
+      numDict['typeName'] = BaseAST('TYPE', [], {'name': ['sint']})
       numDict['params'] = [determineBits(value)]
       numDict['value']  = value
     elif (typeStr == 'FLOAT'):
-      numDict['typeName']  = 'float'
+      numDict['typeName']  = BaseAST('TYPE', [], {'name': ['float']})
       numDict['params'] = []
       numDict['value'] = float(valStr)
     elif (typeStr == 'BIT_INIT_BIN'):
@@ -2040,11 +2063,11 @@ class SyntaxParser(object):
       return createBitArray(binData)
       #numDict['value'] = list(binData)
     elif (typeStr == 'STRING'):
-      numDict['typeName']  = 'str'
+      numDict['typeName']  = BaseAST('TYPE', [], {'name': ['str']})
       numDict['params'] = []
       numDict['value'] = valStr.replace('"','')
     elif (typeStr == 'BOOLEAN'):
-      numDict['typeName']  = 'bool'
+      numDict['typeName']  = BaseAST('TYPE', [], {'name': ['bool']})
       numDict['params'] = []
       numDict['value'] = valStr
     
@@ -2059,7 +2082,7 @@ class SyntaxParser(object):
   def loadVar(self, isDecl, includeSelf=False):
     #Load (ID (INDEX_LIST)? (DOT VAR)? ) 
     varDict = dict()
-    varDict['name'] = self.getValue()
+    varDict['name'] = self.getToken()
     tokenList = ['ID']
     if (includeSelf):
       tokenList.append('SELFVALUE')
@@ -2080,7 +2103,7 @@ class SyntaxParser(object):
       if (self.check(funcList) and (self.peek().type in ['LPAREN','LT'])):
         # Load method
         varDict['field'] = None
-        varDict['method']  = self.loadFuncCall(isDecl)
+        varDict['method']  = self.loadFuncCall(isDecl, True)
       elif (self.check('ID')):
         # Recursively load fields
         varDict['field'] = self.loadVar(isDecl)
@@ -2118,7 +2141,7 @@ class SyntaxParser(object):
   def loadBaseName(self, baseName, includeSelf=False):
     # TYPE_NAME = ID (DOT ID)*
     genType = dict()
-    genType['name'] = [self.getValue()]
+    genType['name'] = [self.getToken()]
     
     # If SELF, only thing. Else it could be concrete type
     if (self.check('ID')):
@@ -2127,7 +2150,7 @@ class SyntaxParser(object):
       # Check if DOT is used to only load one item
       while (self.check('DOT')):
         self.verify('DOT')
-        genType['name'].append(self.getValue())
+        genType['name'].append(self.getToken())
         self.verify('ID')
         
     elif (self.check('SELFTYPE')):
